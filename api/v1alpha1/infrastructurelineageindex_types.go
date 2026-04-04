@@ -1,9 +1,10 @@
-// STUB — InfrastructureLineageIndex is the infrastructure domain instantiation
-// of DomainLineageIndex from core.ontai.dev. See seam-core-schema.md §3 and
-// domain-core-schema.md for the full design rationale.
+// Package v1alpha1 InfrastructureLineageIndex is the infrastructure domain
+// instantiation of DomainLineageIndex from core.ontai.dev. See seam-core-schema.md
+// §3 and domain-core-schema.md for the full design rationale.
 //
-// The LineageController that manages InfrastructureLineageIndex CR lifecycle is
-// a deferred implementation milestone. This stub defines the types only.
+// The InfrastructureLineageController (LineageController) manages the lifecycle
+// of InfrastructureLineageIndex CRs. It is the sole principal permitted to create
+// or update these instances — per CLAUDE.md §14 Decision 3.
 package v1alpha1
 
 import (
@@ -11,6 +12,23 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/ontai-dev/seam-core/pkg/lineage"
+)
+
+// Condition type constants for InfrastructureLineageIndex.
+// These are declared here so the InfrastructureLineageController has a canonical
+// source of truth for the condition types it manages. seam-core-schema.md §7 Declaration 5.
+const (
+	// ConditionTypeLineageSynced is the reserved condition type set on root
+	// declaration CRs across all Seam operators. Initialized to False by the
+	// operator reconciler on first observation; ownership transfers to
+	// InfrastructureLineageController on deployment, which sets it to True.
+	// No Seam Operator may repurpose this condition type name for any other meaning.
+	ConditionTypeLineageSynced = "LineageSynced"
+
+	// ReasonLineageControllerAbsent is used when the operator reconciler initializes
+	// LineageSynced to False. It communicates that InfrastructureLineageController
+	// is not yet deployed and therefore has not processed the root declaration.
+	ReasonLineageControllerAbsent = "LineageControllerAbsent"
 )
 
 // InfrastructureLineageIndexRootBinding records the root declaration that anchors
@@ -117,23 +135,27 @@ type InfrastructureLineageIndexStatus struct {
 
 	// Conditions holds the standard Kubernetes condition array for this resource.
 	// +optional
+	// +listType=map
+	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=ili
+// +kubebuilder:printcolumn:name="RootKind",type=string,JSONPath=`.spec.rootBinding.rootKind`
+// +kubebuilder:printcolumn:name="RootName",type=string,JSONPath=`.spec.rootBinding.rootName`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // InfrastructureLineageIndex is the sealed causal chain index for a root
 // declaration in the Seam infrastructure domain. It instantiates the abstract
 // DomainLineageIndex schema from core.ontai.dev.
 //
-// One InfrastructureLineageIndex is created per root declaration. All derived
-// objects carry a reference to their root's index; they do not carry their own
-// index instances. This is the Lineage Index Pattern — seam-core-schema.md §3.
-//
-// STUB: The LineageController that manages this CR's lifecycle is a deferred
-// implementation milestone. See seam-core-schema.md §6.
+// One InfrastructureLineageIndex is created per root declaration by the
+// InfrastructureLineageController. All derived objects carry a reference to their
+// root's index; they do not carry their own index instances.
+// Lineage Index Pattern — seam-core-schema.md §3.
+// Controller-authored exclusively — CLAUDE.md §14 Decision 3.
 type InfrastructureLineageIndex struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

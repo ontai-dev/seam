@@ -26,6 +26,91 @@ import (
 	idns "github.com/ontai-dev/seam-core/internal/dns"
 )
 
+// categoryForKind maps a GVK kind to a DSNS record category constant.
+func categoryForKind(kind string) string {
+	switch kind {
+	case "TalosCluster", "SeamInfrastructureCluster", "SeamInfrastructureMachine":
+		return idns.RecordCategoryClusterTopology
+	case "IdentityBinding", "IdentityProvider":
+		return idns.RecordCategoryIdentityPlane
+	case "PackInstance", "ClusterPack", "PackExecution":
+		return idns.RecordCategoryPackLineage
+	case "RunnerConfig":
+		return idns.RecordCategoryExecutionAuthority
+	default:
+		return idns.RecordCategoryClusterTopology
+	}
+}
+
+// clusterContextForNamespace derives a cluster context string from a namespace.
+// Strips the seam-tenant- prefix; returns "management" for non-tenant namespaces.
+func clusterContextForNamespace(ns string) string {
+	if c := clusterFromNamespace(ns); c != "" {
+		return c
+	}
+	return "management"
+}
+
+// recordStrings converts a slice of dns.Record to display strings for DSNSEvent.DerivedRecords.
+func recordStrings(records []idns.Record) []string {
+	if len(records) == 0 {
+		return nil
+	}
+	ss := make([]string, 0, len(records))
+	for _, r := range records {
+		ttl := r.TTL
+		if ttl == 0 {
+			ttl = idns.DefaultTTL
+		}
+		ss = append(ss, fmt.Sprintf("%s %d IN %s %s", r.Name, ttl, r.Type, r.Value))
+	}
+	return ss
+}
+
+// severityForObject returns the DSNSEvent severity for an object based on its
+// current condition state. Degraded condition → warning; all other states → informational.
+func severityForObject(obj *unstructured.Unstructured, kind string) string {
+	if kind == "RunnerConfig" && hasConditionTrue(obj, "Degraded") {
+		return idns.SeverityWarning
+	}
+	return idns.SeverityInformational
+}
+
+// deletionEvent constructs a DSNSEvent for a record-removal operation.
+func deletionEvent(gvk schema.GroupVersionKind, req ctrl.Request) idns.DSNSEvent {
+	return idns.DSNSEvent{
+		RecordCategory: categoryForKind(gvk.Kind),
+		Operation:      idns.OperationDeleted,
+		SourceRef: idns.SourceRef{
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Kind:      gvk.Kind,
+			Name:      req.Name,
+			Namespace: req.Namespace,
+		},
+		ClusterContext: clusterContextForNamespace(req.Namespace),
+		Severity:       idns.SeverityInformational,
+	}
+}
+
+// updateEvent constructs a DSNSEvent for a record-write operation.
+func updateEvent(gvk schema.GroupVersionKind, req ctrl.Request, obj *unstructured.Unstructured, records []idns.Record) idns.DSNSEvent {
+	return idns.DSNSEvent{
+		RecordCategory: categoryForKind(gvk.Kind),
+		Operation:      idns.OperationUpdated,
+		SourceRef: idns.SourceRef{
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Kind:      gvk.Kind,
+			Name:      req.Name,
+			Namespace: req.Namespace,
+		},
+		ClusterContext: clusterContextForNamespace(req.Namespace),
+		DerivedRecords: recordStrings(records),
+		Severity:       severityForObject(obj, gvk.Kind),
+	}
+}
+
 // DSNSFinalizer is added to every CRD watched by DSNSReconciler so that the
 // controller can read all record-bearing fields before the object is fully deleted.
 const DSNSFinalizer = "dsns.infrastructure.ontai.dev/cleanup"
@@ -75,7 +160,7 @@ func (r *DSNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			// it was deleted and finalizer already removed in a prior cycle.)
 			logger.Info("object not found — removing records")
 			r.State.RemoveRecords(ownerID)
-			return ctrl.Result{}, r.State.Apply(ctx)
+			return ctrl.Result{}, r.State.Apply(ctx, deletionEvent(r.GVK, req))
 		}
 		return ctrl.Result{}, fmt.Errorf("get %s %s: %w", r.GVK.Kind, req.NamespacedName, err)
 	}
@@ -87,7 +172,7 @@ func (r *DSNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 		logger.Info("object deleting — removing records and releasing finalizer")
 		r.State.RemoveRecords(ownerID)
-		if err := r.State.Apply(ctx); err != nil {
+		if err := r.State.Apply(ctx, deletionEvent(r.GVK, req)); err != nil {
 			return ctrl.Result{}, err
 		}
 		removeDSNSFinalizer(obj)
@@ -109,7 +194,7 @@ func (r *DSNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// Derive DNS records from the current object state.
 	records := r.deriveRecords(obj)
 	r.State.UpdateRecords(ownerID, records)
-	if err := r.State.Apply(ctx); err != nil {
+	if err := r.State.Apply(ctx, updateEvent(r.GVK, req, obj, records)); err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply zone to ConfigMap: %w", err)
 	}
 

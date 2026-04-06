@@ -24,16 +24,26 @@ type DSNSState struct {
 	zone   *ZoneFile
 	owned  map[string][]string // ownerID → record keys owned by that object
 	writer *ConfigMapZoneWriter
+	sinks  *SinkRegistry
 }
 
 // NewDSNSState returns a DSNSState backed by the given client.
+// An empty SinkRegistry (zero sinks) is installed by default. Call SetSinks
+// to replace it with an active registry before the first reconcile.
 // ownerID format: "Kind/namespace/name"
 func NewDSNSState(c client.Client) *DSNSState {
 	return &DSNSState{
 		zone:   NewZoneFile(),
 		owned:  make(map[string][]string),
 		writer: NewConfigMapZoneWriter(c),
+		sinks:  NewSinkRegistry(),
 	}
+}
+
+// SetSinks replaces the SinkRegistry on this DSNSState. It must be called
+// before the first reconcile loop begins and is not safe for concurrent use.
+func (s *DSNSState) SetSinks(sr *SinkRegistry) {
+	s.sinks = sr
 }
 
 // SetStaticRecord adds a static record not associated with any CRD owner.
@@ -73,11 +83,21 @@ func (s *DSNSState) RemoveRecords(ownerID string) {
 // Apply renders the current zone and writes it to the dsns-zone ConfigMap.
 // The zone is rendered under the lock; the ConfigMap write is made without the
 // lock to avoid holding it during a network call.
-func (s *DSNSState) Apply(ctx context.Context) error {
+//
+// If an event is supplied, SinkRegistry.Notify is called after every successful
+// ConfigMap write. Sinks are non-blocking — a slow or failing sink never delays
+// or errors Apply. Passing no event skips notification.
+func (s *DSNSState) Apply(ctx context.Context, events ...DSNSEvent) error {
 	s.mu.Lock()
 	rendered := s.zone.Render()
 	s.mu.Unlock()
-	return s.writer.ApplyContent(ctx, rendered)
+	if err := s.writer.ApplyContent(ctx, rendered); err != nil {
+		return err
+	}
+	if len(events) > 0 && s.sinks != nil {
+		s.sinks.Notify(ctx, events[0]) //nolint:errcheck // always nil; errors logged in registry
+	}
+	return nil
 }
 
 // ZoneSnapshot returns a copy of the current rendered zone string for testing.

@@ -99,6 +99,11 @@ func main() {
 	// seam-core-schema.md §8 Decision 1 — DSNS shares the existing informer cache.
 	dsnsState := idns.NewDSNSState(mgr.GetClient())
 
+	// Construct an empty SinkRegistry — zero sinks. Sink implementations (e.g.
+	// audit forwarder, alert emitter) are registered here at startup when enabled
+	// via feature flag or build tag.
+	dsnsState.SetSinks(idns.NewSinkRegistry())
+
 	// Seed the static authority.conductor record from the environment variable
 	// CONDUCTOR_SIGNING_KEY_FINGERPRINT. If absent, the record is not emitted.
 	// seam-core-schema.md §8 Decision 4 — Conductor authority record.

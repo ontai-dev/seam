@@ -1,10 +1,12 @@
 // Binary seam-core is the controller-runtime manager entry point for the
 // Seam Core schema controller.
 //
-// It registers one LineageReconciler per root-declaration GVK and starts the
-// manager with leader election. Seam Core installs before all operators
-// (SC-INV-003) — this manager must be up before any operator writes root
-// declarations that require LineageSynced transitions.
+// It registers one LineageReconciler per root-declaration GVK and one
+// DSNSReconciler per DSNS GVK, all sharing the manager's informer cache.
+// Seam Core installs before all operators (SC-INV-003).
+//
+// seam-core-schema.md §8 Decision 1 — DSNS is a controller within seam-core,
+// registered alongside LineageController in this file.
 package main
 
 import (
@@ -22,6 +24,7 @@ import (
 
 	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
 	"github.com/ontai-dev/seam-core/internal/controller"
+	idns "github.com/ontai-dev/seam-core/internal/dns"
 	"github.com/ontai-dev/seam-core/internal/webhook"
 )
 
@@ -91,6 +94,36 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	// Register DSNSReconciler — one instance per DSNS GVK, all sharing one DSNSState.
+	// seam-core-schema.md §8 Decision 1 — DSNS shares the existing informer cache.
+	dsnsState := idns.NewDSNSState(mgr.GetClient())
+
+	// Seed the static authority.conductor record from the environment variable
+	// CONDUCTOR_SIGNING_KEY_FINGERPRINT. If absent, the record is not emitted.
+	// seam-core-schema.md §8 Decision 4 — Conductor authority record.
+	if fingerprint := os.Getenv("CONDUCTOR_SIGNING_KEY_FINGERPRINT"); fingerprint != "" {
+		dsnsState.SetStaticRecord(idns.Record{
+			Name:  "authority.conductor",
+			Type:  idns.RecordTypeTXT,
+			Value: fingerprint,
+		})
+		setupLog.Info("DSNS: seeded authority.conductor static record")
+	}
+
+	for _, gvk := range controller.DSNSGVKs {
+		r := &controller.DSNSReconciler{
+			Client: mgr.GetClient(),
+			GVK:    gvk,
+			State:  dsnsState,
+		}
+		if err := r.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create DSNSReconciler",
+				"gvk", gvk.String())
+			os.Exit(1)
+		}
+	}
+	setupLog.Info("DSNS registered", "gvks", len(controller.DSNSGVKs))
 
 	// Register admission webhooks for InfrastructureLineageIndex.
 	// Both webhooks must be registered before mgr.Start.

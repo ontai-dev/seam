@@ -98,6 +98,33 @@ type InfrastructurePolicyBindingStatus struct {
 	DriftDetected bool `json:"driftDetected,omitempty"`
 }
 
+// LineageRetentionPolicy declares how stale descendant entries and the index itself
+// are collected when the root declaration or its derived objects are deleted.
+type LineageRetentionPolicy struct {
+	// DescendantRetentionDays is the number of days a stale descendant entry is
+	// retained after its referenced object is confirmed not-found in the API server.
+	// After this window elapses the LineageController prunes the entry from the
+	// DescendantRegistry.
+	//
+	// Defaults to 30. Minimum is 1.
+	//
+	// +optional
+	// +kubebuilder:default=30
+	// +kubebuilder:validation:Minimum=1
+	DescendantRetentionDays int32 `json:"descendantRetentionDays,omitempty"`
+
+	// DeleteWithRoot controls whether this InfrastructureLineageIndex is garbage
+	// collected when its root declaration is deleted. When true the LineageController
+	// adds an ownerReference from the index to the root declaration, causing
+	// Kubernetes garbage collection to cascade deletion automatically.
+	//
+	// Defaults to true.
+	//
+	// +optional
+	// +kubebuilder:default=true
+	DeleteWithRoot bool `json:"deleteWithRoot"`
+}
+
 // InfrastructureLineageIndexSpec is the spec of an InfrastructureLineageIndex.
 type InfrastructureLineageIndexSpec struct {
 	// RootBinding records the root declaration that anchors this lineage index.
@@ -115,6 +142,13 @@ type InfrastructureLineageIndexSpec struct {
 	// bound to the root declaration at last evaluation.
 	// +optional
 	PolicyBindingStatus *InfrastructurePolicyBindingStatus `json:"policyBindingStatus,omitempty"`
+
+	// RetentionPolicy declares garbage collection behavior for this index and its
+	// stale descendant entries. If absent, controller defaults apply
+	// (descendantRetentionDays=30, deleteWithRoot=true).
+	//
+	// +optional
+	RetentionPolicy *LineageRetentionPolicy `json:"retentionPolicy,omitempty"`
 }
 
 // InfrastructureLineageIndexStatus is the observed state of an

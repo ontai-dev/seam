@@ -228,6 +228,7 @@ func (r *DSNSReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(r.GVK)
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("dsns-" + strings.ToLower(r.GVK.Kind)).
 		For(u).
 		Complete(r)
 }

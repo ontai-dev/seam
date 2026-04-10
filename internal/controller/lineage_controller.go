@@ -431,6 +431,7 @@ func (r *LineageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(r.GVK)
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("lineage-" + strings.ToLower(r.GVK.Kind)).
 		For(u).
 		Complete(r)
 }

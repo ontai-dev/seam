@@ -296,12 +296,14 @@ func TestDSNSReconciler_IdentityProvider_Valid(t *testing.T) {
 // ── PackInstance tests ────────────────────────────────────────────────────────
 
 // TestDSNSReconciler_PackInstance_Succeeded verifies that a Ready PackInstance
-// emits a TXT pack record with the receiptDigest.
+// emits a TXT pack record. spec.clusterPackRef is the flat string pack name;
+// spec.targetClusterRef is the cluster; version uses "unknown" fallback since
+// it is not present on PackInstance spec. seam-core-schema.md §8 Decision 4.
 func TestDSNSReconciler_PackInstance_Succeeded(t *testing.T) {
 	t.Parallel()
 	pi := newUnstructured(packInstanceGVK, "nginx-instance", "seam-tenant-cluster1")
-	setField(pi, "nginx", "spec", "packRef", "name")
-	setField(pi, "1.25.0", "spec", "packRef", "version")
+	setField(pi, "nginx", "spec", "clusterPackRef")
+	setField(pi, "cluster1", "spec", "targetClusterRef")
 	setField(pi, "sha256:abcdef1234567890", "status", "receiptDigest")
 	setCondition(pi, "Ready", "True", "PackReceiptReady", "2026-04-06T00:00:00Z")
 
@@ -311,13 +313,33 @@ func TestDSNSReconciler_PackInstance_Succeeded(t *testing.T) {
 	reconcile(t, r, pi)
 
 	zone := zoneContent(t, fc)
-	wantLines := []string{
-		`pack.nginx.1.25.0.wrapper.cluster1 300 IN TXT "sha256:abcdef1234567890"`,
+	want := `pack.nginx.unknown.wrapper.cluster1 300 IN TXT "sha256:abcdef1234567890"`
+	if !strings.Contains(zone, want) {
+		t.Errorf("zone missing %q:\n%s", want, zone)
 	}
-	for _, want := range wantLines {
-		if !strings.Contains(zone, want) {
-			t.Errorf("zone missing %q:\n%s", want, zone)
-		}
+}
+
+// TestDSNSReconciler_PackInstance_ReadyNoReceipt verifies that a Ready PackInstance
+// without a receiptDigest still emits a TXT record with value "delivered".
+// PackReceipt is only written by the conductor agent on target clusters; the
+// management cluster will never produce one in lab. seam-core-schema.md §8 Decision 4.
+func TestDSNSReconciler_PackInstance_ReadyNoReceipt(t *testing.T) {
+	t.Parallel()
+	pi := newUnstructured(packInstanceGVK, "my-pack-instance", "seam-tenant-cluster1")
+	setField(pi, "my-pack", "spec", "clusterPackRef")
+	setField(pi, "cluster1", "spec", "targetClusterRef")
+	// No receiptDigest set — simulates management cluster lab environment.
+	setCondition(pi, "Ready", "True", "PackDelivered", "2026-04-10T00:00:00Z")
+
+	fc := newFakeClient(t, pi)
+	state := idns.NewDSNSState(fc)
+	r := newDSNSReconciler(fc, packInstanceGVK, state)
+	reconcile(t, r, pi)
+
+	zone := zoneContent(t, fc)
+	want := `pack.my-pack.unknown.wrapper.cluster1 300 IN TXT "delivered"`
+	if !strings.Contains(zone, want) {
+		t.Errorf("zone missing %q:\n%s", want, zone)
 	}
 }
 

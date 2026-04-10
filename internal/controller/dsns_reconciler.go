@@ -363,35 +363,45 @@ func deriveIdentityProviderRecords(obj *unstructured.Unstructured) []idns.Record
 //
 //	pack.{pack-name}.{pack-version}.wrapper.{cluster-name}
 //
-// carrying status.receiptDigest. Only emitted when the PackInstance is in
-// terminal Succeeded state (Ready=True / PackReceiptReady).
+// carrying status.receiptDigest (or "delivered" when the digest is absent).
+// Emitted whenever Ready=True — PackReceipt is written by the conductor agent
+// on target clusters only, so receiptDigest is not required for record emission.
+//
+// spec.clusterPackRef is a flat string (pack name). Version is not available on
+// PackInstance spec; "unknown" is used as a fallback per seam-core-schema.md §8.
+// spec.targetClusterRef is read directly instead of deriving from namespace.
 //
 // seam-core-schema.md §8 Decision 4 — Wrapper records.
 func derivePackInstanceRecords(obj *unstructured.Unstructured) []idns.Record {
 	if !hasConditionTrue(obj, "Ready") {
 		return nil
 	}
-	clusterName := clusterFromNamespace(obj.GetNamespace())
-	if clusterName == "" {
-		return nil
-	}
-	packName, _, _ := unstructured.NestedString(obj.Object, "spec", "packRef", "name")
-	packVersion, _, _ := unstructured.NestedString(obj.Object, "spec", "packRef", "version")
+	packName, _, _ := unstructured.NestedString(obj.Object, "spec", "clusterPackRef")
+	clusterName, _, _ := unstructured.NestedString(obj.Object, "spec", "targetClusterRef")
 	receiptDigest, _, _ := unstructured.NestedString(obj.Object, "status", "receiptDigest")
 
 	if packName == "" {
 		packName = obj.GetName()
 	}
-	if packVersion == "" {
-		packVersion = "unknown"
+	// Version is not present on PackInstance spec; use "unknown" as a stable fallback.
+	packVersion := "unknown"
+	if clusterName == "" {
+		// Fall back to namespace derivation for objects predating targetClusterRef.
+		clusterName = clusterFromNamespace(obj.GetNamespace())
 	}
-	if receiptDigest == "" {
+	if clusterName == "" {
 		return nil
+	}
+	value := receiptDigest
+	if value == "" {
+		// PackReceipt is written by the conductor agent on target clusters.
+		// On the management cluster the digest may be absent; emit anyway.
+		value = "delivered"
 	}
 
 	recName := fmt.Sprintf("pack.%s.%s.wrapper.%s", packName, packVersion, clusterName)
 	return []idns.Record{
-		{Name: recName, Type: idns.RecordTypeTXT, Value: receiptDigest},
+		{Name: recName, Type: idns.RecordTypeTXT, Value: value},
 	}
 }
 

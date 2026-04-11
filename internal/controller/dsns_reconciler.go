@@ -444,8 +444,12 @@ func derivePackInstanceRecords(obj *unstructured.Unstructured) []idns.Record {
 	if packName == "" {
 		packName = obj.GetName()
 	}
-	// Version is not present on PackInstance spec; use "unknown" as a stable fallback.
-	packVersion := "unknown"
+	// Read version from spec.version (set by PackExecutionReconciler at delivery time).
+	// Fall back to "unknown" for PackInstances created before this field was introduced.
+	packVersion, _, _ := unstructured.NestedString(obj.Object, "spec", "version")
+	if packVersion == "" {
+		packVersion = "unknown"
+	}
 	if clusterName == "" {
 		// Fall back to namespace derivation for objects predating targetClusterRef.
 		clusterName = clusterFromNamespace(obj.GetNamespace())

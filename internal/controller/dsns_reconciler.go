@@ -14,6 +14,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -142,11 +143,67 @@ type DSNSReconciler struct {
 	Client client.Client
 	GVK    schema.GroupVersionKind
 	State  *idns.DSNSState
+
+	// NsGlueFallbackIP is the IP address used for the ns glue A record when the
+	// dsns-loadbalancer Service in kube-system has no ingress IP yet. Populated
+	// from DSNS_SERVICE_IP env at startup. Bug 3.
+	NsGlueFallbackIP string
+}
+
+// clusterEndpointIP extracts the bare IP address from a clusterEndpoint value
+// that may be in "host:port" format (e.g. "10.20.0.10:6443") or plain host/IP
+// format. A records require an IP address only — the port suffix must be stripped.
+// Bug 1.
+func clusterEndpointIP(endpoint string) string {
+	host, _, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		// No port present — the whole string is the host/IP.
+		return endpoint
+	}
+	return host
+}
+
+// refreshNSGlue reads the dsns-loadbalancer Service from kube-system and uses
+// status.loadBalancer.ingress[0].ip as the ns glue A record IP. Falls back to
+// NsGlueFallbackIP when the Service is absent or has no ingress IP yet.
+// No-ops when both sources are empty. Bug 3.
+func (r *DSNSReconciler) refreshNSGlue(ctx context.Context) {
+	logger := log.FromContext(ctx)
+	ip := r.NsGlueFallbackIP
+
+	svc := &unstructured.Unstructured{}
+	svc.SetAPIVersion("v1")
+	svc.SetKind("Service")
+	if err := r.Client.Get(ctx, client.ObjectKey{
+		Name:      "dsns-loadbalancer",
+		Namespace: "kube-system",
+	}, svc); err == nil {
+		ingress, _, _ := unstructured.NestedSlice(svc.Object, "status", "loadBalancer", "ingress")
+		if len(ingress) > 0 {
+			if ing, ok := ingress[0].(map[string]interface{}); ok {
+				if lbIP, ok := ing["ip"].(string); ok && lbIP != "" {
+					ip = lbIP
+				}
+			}
+		}
+	}
+
+	if ip != "" {
+		r.State.SetStaticRecord(idns.Record{
+			Name:  "ns",
+			Type:  idns.RecordTypeA,
+			Value: ip,
+		})
+		logger.V(1).Info("ns glue record refreshed", "ip", ip)
+	}
 }
 
 // Reconcile is the reconcile loop entry point. It dispatches on r.GVK.Kind.
 func (r *DSNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("dsns-gvk", r.GVK.Kind, "name", req.Name, "ns", req.Namespace)
+
+	// Bug 3: refresh ns glue record from the live LB Service IP on every reconcile.
+	r.refreshNSGlue(ctx)
 
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(r.GVK)
@@ -277,9 +334,13 @@ func deriveTalosClusterRecords(obj *unstructured.Unstructured) []idns.Record {
 	// that does not exist). platform-schema.md §5.
 	provider, _, _ := unstructured.NestedString(obj.Object, "spec", "infrastructureProvider")
 
+	// Bug 1: A records require an IP address only — strip any ":port" suffix from
+	// clusterEndpoint (e.g. "10.20.0.10:6443" → "10.20.0.10").
+	endpointIP := clusterEndpointIP(clusterEndpoint)
+
 	records := []idns.Record{
-		{Name: name, Type: idns.RecordTypeA, Value: clusterEndpoint},
-		{Name: "api." + name, Type: idns.RecordTypeA, Value: clusterEndpoint},
+		{Name: name, Type: idns.RecordTypeA, Value: endpointIP},
+		{Name: "api." + name, Type: idns.RecordTypeA, Value: endpointIP},
 	}
 
 	if provider == "screen" {
@@ -288,8 +349,8 @@ func deriveTalosClusterRecords(obj *unstructured.Unstructured) []idns.Record {
 		nsFQDN := "ns." + name + "." + idns.Zone
 		records = append(records,
 			idns.Record{Name: name, Type: idns.RecordTypeNS, Value: nsFQDN},
-			// Glue A record for the sovereign NS nameserver.
-			idns.Record{Name: "ns." + name, Type: idns.RecordTypeA, Value: clusterEndpoint},
+			// Glue A record for the sovereign NS nameserver — IP only, no port.
+			idns.Record{Name: "ns." + name, Type: idns.RecordTypeA, Value: endpointIP},
 		)
 	} else {
 		// Role TXT: prefer status.origin (bootstrapped/imported), fall back to

@@ -140,11 +140,18 @@ func main() {
 		setupLog.Info("DSNS: DSNS_SERVICE_IP not set — ns glue A record skipped; CoreDNS will not resolve ns.seam.ontave.dev and dig queries may return no response")
 	}
 
+	// Read the DSNS_SERVICE_IP env var once at startup; each reconciler uses it as
+	// the ns glue fallback when the live dsns-loadbalancer Service has no ingress
+	// IP yet. Bug 3: the reconciler refreshes the glue from the live Service on
+	// every reconcile and falls back to this value when the Service is absent.
+	dsnsServiceIP := os.Getenv("DSNS_SERVICE_IP")
+
 	for _, gvk := range controller.DSNSGVKs {
 		r := &controller.DSNSReconciler{
-			Client: mgr.GetClient(),
-			GVK:    gvk,
-			State:  dsnsState,
+			Client:           mgr.GetClient(),
+			GVK:              gvk,
+			State:            dsnsState,
+			NsGlueFallbackIP: dsnsServiceIP,
 		}
 		if err := r.SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create DSNSReconciler",

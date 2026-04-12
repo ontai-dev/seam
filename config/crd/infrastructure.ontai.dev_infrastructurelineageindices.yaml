@@ -144,6 +144,15 @@ spec:
                   - version
                   type: object
                 type: array
+              domainRef:
+                description: |-
+                  DomainRef references the DomainLineageIndex at core.ontai.dev that
+                  this InfrastructureLineageIndex instantiates. This is the formal
+                  traceability link from the infrastructure domain to the domain core.
+                  Format: {name}.{group} — e.g. "infrastructure.core.ontai.dev"
+                  Set by the InfrastructureLineageController on creation. Validated by the
+                  admission webhook: when present, must equal "infrastructure.core.ontai.dev".
+                type: string
               policyBindingStatus:
                 description: |-
                   PolicyBindingStatus records the InfrastructurePolicy and InfrastructureProfile

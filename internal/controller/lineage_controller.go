@@ -50,6 +50,12 @@ const GovernanceAnnotationControllerAuthored = GovernanceAnnotationPrefix + "/co
 // the InfrastructureLineageController successfully creates an ILI for the root declaration.
 const ReasonLineageIndexCreated = "LineageIndexCreated"
 
+// InfrastructureDomainRef is the canonical domainRef value for all Seam infrastructure
+// ILIs. It is the {name}.{group} reference to the DomainLineageIndex at core.ontai.dev
+// that the InfrastructureLineageIndex instantiates. All infrastructure ILIs trace to
+// this single domain root. CLAUDE.md §14 Decision 2.
+const InfrastructureDomainRef = "infrastructure.core.ontai.dev"
+
 // RootDeclarationGVK names all root-declaration CRD GroupVersionKinds that the
 // InfrastructureLineageController watches. One InfrastructureLineageIndex is created
 // per observed instance of any of these kinds.
@@ -216,6 +222,10 @@ func (r *LineageReconciler) buildILI(root *unstructured.Unstructured, iliName st
 				RootUID:                root.GetUID(),
 				RootObservedGeneration: root.GetGeneration(),
 			},
+			// DomainRef is the canonical traceability link from this infrastructure
+			// ILI to the abstract DomainLineageIndex at core.ontai.dev. All Seam
+			// infrastructure ILIs trace to this single domain root. CLAUDE.md §14 Decision 2.
+			DomainRef:           InfrastructureDomainRef,
 			DescendantRegistry:  nil,
 			PolicyBindingStatus: nil,
 		},

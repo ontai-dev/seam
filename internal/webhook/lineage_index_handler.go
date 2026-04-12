@@ -83,6 +83,64 @@ func extractRootBinding(raw []byte) (*json.RawMessage, error) {
 	return obj.Spec.RootBinding, nil
 }
 
+// DomainRefValidationHandler is a controller-runtime admission.Handler that validates
+// spec.domainRef on InfrastructureLineageIndex CREATE requests. It rejects any
+// creation that sets domainRef to a value other than "infrastructure.core.ontai.dev".
+// Empty domainRef is permitted — the LineageController sets it during reconciliation.
+//
+// Decision logic is delegated to EvaluateDomainRefValidation in domainref_validation.go.
+// seam-core-schema.md §3, CLAUDE.md §14 Decision 2.
+type DomainRefValidationHandler struct {
+	decoder *admission.Decoder
+}
+
+// specDomainRefExtract is used for partial JSON unmarshalling of admitted
+// InfrastructureLineageIndex resources. Only spec.domainRef is needed.
+type specDomainRefExtract struct {
+	Spec struct {
+		DomainRef string `json:"domainRef"`
+	} `json:"spec"`
+}
+
+// Handle implements admission.Handler for the domainRef validation gate.
+func (h *DomainRefValidationHandler) Handle(_ context.Context, req admission.Request) admission.Response {
+	domainRef, err := extractDomainRef(req.Object.Raw)
+	if err != nil {
+		return admission.Errored(http.StatusBadRequest, err)
+	}
+
+	decision := EvaluateDomainRefValidation(DomainRefValidationRequest{
+		Kind:      req.Kind.Kind,
+		Operation: AdmissionOperation(req.Operation),
+		DomainRef: domainRef,
+	})
+
+	if decision.Allowed {
+		return admission.Allowed("")
+	}
+	return admission.Denied(decision.Reason)
+}
+
+// InjectDecoder injects the decoder from controller-runtime's webhook builder.
+func (h *DomainRefValidationHandler) InjectDecoder(d *admission.Decoder) error {
+	h.decoder = d
+	return nil
+}
+
+// extractDomainRef extracts spec.domainRef as a string from the provided raw
+// object bytes. Returns "" if the field is absent or if raw is empty.
+// Returns an error only on malformed JSON.
+func extractDomainRef(raw []byte) (string, error) {
+	if len(raw) == 0 {
+		return "", nil
+	}
+	var obj specDomainRefExtract
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return "", err
+	}
+	return obj.Spec.DomainRef, nil
+}
+
 // AuthorshipGateHandler is a controller-runtime admission.Handler that enforces
 // controller-authorship on InfrastructureLineageIndex.
 //

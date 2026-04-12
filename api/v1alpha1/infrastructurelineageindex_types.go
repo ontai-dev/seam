@@ -147,6 +147,15 @@ type InfrastructureLineageIndexSpec struct {
 	// modifies a field in this section.
 	RootBinding InfrastructureLineageIndexRootBinding `json:"rootBinding"`
 
+	// DomainRef references the DomainLineageIndex at core.ontai.dev that
+	// this InfrastructureLineageIndex instantiates. This is the formal
+	// traceability link from the infrastructure domain to the domain core.
+	// Format: {name}.{group} — e.g. "infrastructure.core.ontai.dev"
+	// Set by the InfrastructureLineageController on creation. Validated by the
+	// admission webhook: when present, must equal "infrastructure.core.ontai.dev".
+	// +kubebuilder:validation:Optional
+	DomainRef string `json:"domainRef,omitempty"`
+
 	// DescendantRegistry is the list of all objects derived from the root
 	// declaration. Appended monotonically as new derived objects are created.
 	// Entries are never modified or removed.

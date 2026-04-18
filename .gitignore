@@ -1,7 +1,8 @@
 CLAUDE.md
 AGENTS.md
 
-# Markdown: only README and schema documents are tracked
+# Markdown: only README, schema documents, and CONTRIBUTING are tracked
 *.md
 !README.md
 !*-schema.md
+!CONTRIBUTING.md

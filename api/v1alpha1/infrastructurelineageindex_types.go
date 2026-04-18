@@ -11,24 +11,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/ontai-dev/seam-core/pkg/conditions"
 	"github.com/ontai-dev/seam-core/pkg/lineage"
 )
 
-// Condition type constants for InfrastructureLineageIndex.
-// These are declared here so the InfrastructureLineageController has a canonical
-// source of truth for the condition types it manages. seam-core-schema.md §7 Declaration 5.
+// ConditionTypeLineageSynced and ReasonLineageControllerAbsent are re-exported from
+// pkg/conditions as the canonical source of truth. seam-core-schema.md §7
+// Declaration 5. Consumers should prefer importing pkg/conditions directly. Gap 31.
 const (
-	// ConditionTypeLineageSynced is the reserved condition type set on root
-	// declaration CRs across all Seam operators. Initialized to False by the
-	// operator reconciler on first observation; ownership transfers to
-	// InfrastructureLineageController on deployment, which sets it to True.
-	// No Seam Operator may repurpose this condition type name for any other meaning.
-	ConditionTypeLineageSynced = "LineageSynced"
-
-	// ReasonLineageControllerAbsent is used when the operator reconciler initializes
-	// LineageSynced to False. It communicates that InfrastructureLineageController
-	// is not yet deployed and therefore has not processed the root declaration.
-	ReasonLineageControllerAbsent = "LineageControllerAbsent"
+	ConditionTypeLineageSynced    = conditions.ConditionTypeLineageSynced
+	ReasonLineageControllerAbsent = conditions.ReasonLineageControllerAbsent
 )
 
 // InfrastructureLineageIndexRootBinding records the root declaration that anchors
@@ -52,8 +44,16 @@ type InfrastructureLineageIndexRootBinding struct {
 }
 
 // DescendantEntry records a single derived object in the lineage index.
-// Entries are appended monotonically. An entry is never modified or removed.
+// Entries are appended monotonically. An entry is never modified or removed
+// except by the retention enforcement loop (which removes stale entries after
+// the retention window elapses).
 type DescendantEntry struct {
+	// Group is the API group of the derived object (e.g., platform.ontai.dev).
+	Group string `json:"group"`
+
+	// Version is the API version of the derived object (e.g., v1alpha1).
+	Version string `json:"version"`
+
 	// Kind is the kind of the derived object.
 	Kind string `json:"kind"`
 
@@ -79,6 +79,13 @@ type DescendantEntry struct {
 	// RootGenerationAtCreation is the metadata.generation of the root declaration
 	// at the time this derived object was created.
 	RootGenerationAtCreation int64 `json:"rootGenerationAtCreation"`
+
+	// RecordedAt is the time this descendant entry was appended to the registry.
+	// Used by the retention enforcement loop to determine when a stale entry
+	// (referenced object no longer exists) has exceeded its retention window.
+	//
+	// +optional
+	RecordedAt *metav1.Time `json:"recordedAt,omitempty"`
 }
 
 // InfrastructurePolicyBindingStatus records the InfrastructurePolicy and
@@ -106,12 +113,48 @@ type InfrastructurePolicyBindingStatus struct {
 	DriftDetected bool `json:"driftDetected,omitempty"`
 }
 
+// LineageRetentionPolicy declares how stale descendant entries and the index itself
+// are collected when the root declaration or its derived objects are deleted.
+type LineageRetentionPolicy struct {
+	// DescendantRetentionDays is the number of days a stale descendant entry is
+	// retained after its referenced object is confirmed not-found in the API server.
+	// After this window elapses the LineageController prunes the entry from the
+	// DescendantRegistry.
+	//
+	// Defaults to 30. Minimum is 1.
+	//
+	// +optional
+	// +kubebuilder:default=30
+	// +kubebuilder:validation:Minimum=1
+	DescendantRetentionDays int32 `json:"descendantRetentionDays,omitempty"`
+
+	// DeleteWithRoot controls whether this InfrastructureLineageIndex is garbage
+	// collected when its root declaration is deleted. When true the LineageController
+	// adds an ownerReference from the index to the root declaration, causing
+	// Kubernetes garbage collection to cascade deletion automatically.
+	//
+	// Defaults to true.
+	//
+	// +optional
+	// +kubebuilder:default=true
+	DeleteWithRoot bool `json:"deleteWithRoot"`
+}
+
 // InfrastructureLineageIndexSpec is the spec of an InfrastructureLineageIndex.
 type InfrastructureLineageIndexSpec struct {
 	// RootBinding records the root declaration that anchors this lineage index.
 	// Immutable after admission. The admission webhook rejects any update that
 	// modifies a field in this section.
 	RootBinding InfrastructureLineageIndexRootBinding `json:"rootBinding"`
+
+	// DomainRef references the DomainLineageIndex at core.ontai.dev that
+	// this InfrastructureLineageIndex instantiates. This is the formal
+	// traceability link from the infrastructure domain to the domain core.
+	// Format: {name}.{group} — e.g. "infrastructure.core.ontai.dev"
+	// Set by the InfrastructureLineageController on creation. Validated by the
+	// admission webhook: when present, must equal "infrastructure.core.ontai.dev".
+	// +kubebuilder:validation:Optional
+	DomainRef string `json:"domainRef,omitempty"`
 
 	// DescendantRegistry is the list of all objects derived from the root
 	// declaration. Appended monotonically as new derived objects are created.
@@ -123,6 +166,13 @@ type InfrastructureLineageIndexSpec struct {
 	// bound to the root declaration at last evaluation.
 	// +optional
 	PolicyBindingStatus *InfrastructurePolicyBindingStatus `json:"policyBindingStatus,omitempty"`
+
+	// RetentionPolicy declares garbage collection behavior for this index and its
+	// stale descendant entries. If absent, controller defaults apply
+	// (descendantRetentionDays=30, deleteWithRoot=true).
+	//
+	// +optional
+	RetentionPolicy *LineageRetentionPolicy `json:"retentionPolicy,omitempty"`
 }
 
 // InfrastructureLineageIndexStatus is the observed state of an

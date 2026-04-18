@@ -50,6 +50,12 @@ const GovernanceAnnotationControllerAuthored = GovernanceAnnotationPrefix + "/co
 // the InfrastructureLineageController successfully creates an ILI for the root declaration.
 const ReasonLineageIndexCreated = "LineageIndexCreated"
 
+// InfrastructureDomainRef is the canonical domainRef value for all Seam infrastructure
+// ILIs. It is the {name}.{group} reference to the DomainLineageIndex at core.ontai.dev
+// that the InfrastructureLineageIndex instantiates. All infrastructure ILIs trace to
+// this single domain root. CLAUDE.md §14 Decision 2.
+const InfrastructureDomainRef = "infrastructure.core.ontai.dev"
+
 // RootDeclarationGVK names all root-declaration CRD GroupVersionKinds that the
 // InfrastructureLineageController watches. One InfrastructureLineageIndex is created
 // per observed instance of any of these kinds.
@@ -150,6 +156,22 @@ func (r *LineageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			logger.Info("InfrastructureLineageIndex created",
 				"iliName", iliName, "rootKind", r.GVK.Kind, "rootName", root.GetName())
 		}
+		// Re-fetch the ILI so downstream steps have a populated ResourceVersion.
+		if err := r.Client.Get(ctx, iliKey, ili); err != nil {
+			if apierrors.IsNotFound(err) {
+				// Very unlikely: just created or a concurrent delete. Requeue.
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, fmt.Errorf("re-fetch InfrastructureLineageIndex %s: %w", iliName, err)
+		}
+	}
+
+	// Step Cf — Prune stale descendant entries from the DescendantRegistry.
+	// An entry is pruned when the referenced object is confirmed not-found AND
+	// the entry's RecordedAt timestamp is older than the retention window.
+	// conductor-schema.md (retention enforcement).
+	if err := r.pruneStaleDescendants(ctx, ili); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to prune stale descendants: %w", err)
 	}
 
 	// Step D — Write governance annotation on root declaration metadata.
@@ -162,6 +184,12 @@ func (r *LineageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Step E — Transition LineageSynced=True on root declaration status.
 	if err := r.ensureLineageSyncedTrue(ctx, root, iliName); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set LineageSynced=True: %w", err)
+	}
+
+	// Step Eg — If deleteWithRoot=true, ensure ownerReference is set on the ILI
+	// pointing to the root declaration so Kubernetes GC cascades deletion.
+	if err := r.ensureOwnerReferenceIfDeleteWithRoot(ctx, root, ili); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to ensure ownerReference: %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -194,6 +222,10 @@ func (r *LineageReconciler) buildILI(root *unstructured.Unstructured, iliName st
 				RootUID:                root.GetUID(),
 				RootObservedGeneration: root.GetGeneration(),
 			},
+			// DomainRef is the canonical traceability link from this infrastructure
+			// ILI to the abstract DomainLineageIndex at core.ontai.dev. All Seam
+			// infrastructure ILIs trace to this single domain root. CLAUDE.md §14 Decision 2.
+			DomainRef:           InfrastructureDomainRef,
 			DescendantRegistry:  nil,
 			PolicyBindingStatus: nil,
 		},
@@ -280,6 +312,120 @@ func (r *LineageReconciler) ensureLineageSyncedTrue(ctx context.Context, root *u
 	return r.Client.Status().Patch(ctx, root, client.MergeFrom(patchBase))
 }
 
+// defaultDescendantRetentionDays is the default number of days a stale descendant
+// entry is retained after the referenced object is confirmed deleted.
+const defaultDescendantRetentionDays = 30
+
+// pruneStaleDescendants inspects each entry in the ILI DescendantRegistry. If the
+// entry's referenced object is not-found in the API server AND the entry's RecordedAt
+// timestamp is older than the effective retention window, the entry is removed from
+// the registry. The registry is patched only if at least one entry was pruned.
+//
+// A nil RecordedAt timestamp means the entry predates retention tracking — the entry
+// is never pruned to preserve backward compatibility.
+func (r *LineageReconciler) pruneStaleDescendants(ctx context.Context, ili *seamv1alpha1.InfrastructureLineageIndex) error {
+	if len(ili.Spec.DescendantRegistry) == 0 {
+		return nil
+	}
+
+	retentionDays := int32(defaultDescendantRetentionDays)
+	if ili.Spec.RetentionPolicy != nil && ili.Spec.RetentionPolicy.DescendantRetentionDays > 0 {
+		retentionDays = ili.Spec.RetentionPolicy.DescendantRetentionDays
+	}
+	retentionWindow := time.Duration(retentionDays) * 24 * time.Hour
+
+	logger := log.FromContext(ctx).WithValues("ili", ili.Name, "namespace", ili.Namespace)
+
+	var kept []seamv1alpha1.DescendantEntry
+	pruned := false
+
+	for _, entry := range ili.Spec.DescendantRegistry {
+		// Entries without RecordedAt predate retention tracking — always keep.
+		if entry.RecordedAt == nil {
+			kept = append(kept, entry)
+			continue
+		}
+		// Keep entries within the retention window regardless of object existence.
+		if time.Since(entry.RecordedAt.Time) < retentionWindow {
+			kept = append(kept, entry)
+			continue
+		}
+		// Retention window elapsed — do a non-blocking existence check.
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   entry.Group,
+			Version: entry.Version,
+			Kind:    entry.Kind,
+		})
+		err := r.Client.Get(ctx, client.ObjectKey{Name: entry.Name, Namespace: entry.Namespace}, obj)
+		if err == nil {
+			// Object still exists — keep the entry.
+			kept = append(kept, entry)
+			continue
+		}
+		if !apierrors.IsNotFound(err) {
+			// API server error — keep conservatively, log the issue.
+			logger.Error(err, "existence check failed for descendant — keeping entry",
+				"kind", entry.Kind, "name", entry.Name, "namespace", entry.Namespace)
+			kept = append(kept, entry)
+			continue
+		}
+		// Object is not-found and retention window elapsed — prune.
+		logger.Info("pruning stale descendant entry",
+			"kind", entry.Kind, "name", entry.Name, "namespace", entry.Namespace,
+			"recordedAt", entry.RecordedAt, "retentionDays", retentionDays)
+		pruned = true
+	}
+
+	if !pruned {
+		return nil
+	}
+
+	// Apply the pruned registry as a patch.
+	patch := client.MergeFrom(ili.DeepCopy())
+	ili.Spec.DescendantRegistry = kept
+	return r.Client.Patch(ctx, ili, patch)
+}
+
+// ensureOwnerReferenceIfDeleteWithRoot adds an ownerReference from the ILI to the
+// root declaration when the effective RetentionPolicy.DeleteWithRoot is true. This
+// causes Kubernetes garbage collection to cascade deletion of the ILI when the root
+// declaration is deleted.
+//
+// The ownerReference is idempotent — if it is already set, no patch is issued.
+func (r *LineageReconciler) ensureOwnerReferenceIfDeleteWithRoot(ctx context.Context, root *unstructured.Unstructured, ili *seamv1alpha1.InfrastructureLineageIndex) error {
+	deleteWithRoot := true // default per RetentionPolicy
+	if ili.Spec.RetentionPolicy != nil {
+		deleteWithRoot = ili.Spec.RetentionPolicy.DeleteWithRoot
+	}
+	if !deleteWithRoot {
+		return nil
+	}
+
+	// Check if ownerReference already points to this root declaration.
+	rootUID := root.GetUID()
+	for _, ref := range ili.GetOwnerReferences() {
+		if ref.UID == rootUID {
+			return nil // already set
+		}
+	}
+
+	// Construct the ownerReference. The root declaration is in the same namespace as
+	// the ILI — owner references are valid for same-namespace resources.
+	blockOwnerDeletion := true
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         r.GVK.GroupVersion().String(),
+		Kind:               r.GVK.Kind,
+		Name:               root.GetName(),
+		UID:                rootUID,
+		BlockOwnerDeletion: &blockOwnerDeletion,
+	}
+
+	patch := client.MergeFrom(ili.DeepCopy())
+	ili.SetOwnerReferences(append(ili.GetOwnerReferences(), ownerRef))
+	return r.Client.Patch(ctx, ili, patch)
+}
+
 // lineageIndexName returns the deterministic InfrastructureLineageIndex name for
 // a given root declaration kind and name. The format is:
 // {lowercasekind}-{name}
@@ -295,6 +441,7 @@ func (r *LineageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(r.GVK)
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("lineage-" + strings.ToLower(r.GVK.Kind)).
 		For(u).
 		Complete(r)
 }

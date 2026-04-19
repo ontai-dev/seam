@@ -26,6 +26,7 @@ var (
 	rbacPolicyGVK     = schema.GroupVersionKind{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "RBACPolicy"}
 	packExecutionGVK  = schema.GroupVersionKind{Group: "infra.ontai.dev", Version: "v1alpha1", Kind: "PackExecution"}
 	identityBindGVK   = schema.GroupVersionKind{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"}
+	packInstanceGVK   = schema.GroupVersionKind{Group: "infra.ontai.dev", Version: "v1alpha1", Kind: "PackInstance"}
 )
 
 func newTestScheme(t *testing.T) *runtime.Scheme {
@@ -731,5 +732,84 @@ func TestLineageReconciler_ILINameDerivation(t *testing.T) {
 			t.Errorf("GVK %s name %q: expected ILI %q, not found: %v",
 				tc.gvk.Kind, tc.rootName, tc.wantName, err)
 		}
+	}
+}
+
+// TestLineageReconciler_PackInstanceCreatesILIAndSetsLineageSynced verifies the
+// full reconcile path for infra.ontai.dev/v1alpha1/PackInstance: an ILI is created
+// and LineageSynced is transitioned to True.
+//
+// PackInstance was identified in SEAM-CORE-BL-LINEAGE as having LineageSynced=False
+// in production. This test is the permanent regression guard confirming the reconciler
+// exercises the complete path including Status().Patch() with WithStatusSubresource.
+func TestLineageReconciler_PackInstanceCreatesILIAndSetsLineageSynced(t *testing.T) {
+	s := newTestScheme(t)
+	root := newRootDeclaration(packInstanceGVK, "cilium-v1-ccs-mgmt", "ont-system")
+
+	// WithStatusSubresource must include the unstructured root with its GVK set.
+	// The fake client matches status subresource eligibility by GVK — without this
+	// the Status().Patch() call in ensureLineageSyncedTrue is a no-op and
+	// LineageSynced remains False. seam-core session 22 investigation.
+	fakeClient := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(root).
+		WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+		Build()
+
+	r := &controller.LineageReconciler{
+		Client: fakeClient,
+		Scheme: s,
+		GVK:    packInstanceGVK,
+	}
+
+	result := reconcileRoot(t, r, "cilium-v1-ccs-mgmt", "ont-system")
+	if result.Requeue || result.RequeueAfter != 0 {
+		t.Errorf("expected no requeue, got %+v", result)
+	}
+
+	// Verify ILI was created with correct rootBinding.
+	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	iliKey := client.ObjectKey{Name: "packinstance-cilium-v1-ccs-mgmt", Namespace: "ont-system"}
+	if err := fakeClient.Get(context.Background(), iliKey, ili); err != nil {
+		t.Fatalf("expected InfrastructureLineageIndex to exist: %v", err)
+	}
+	if ili.Spec.RootBinding.RootKind != "PackInstance" {
+		t.Errorf("expected RootKind=PackInstance, got %q", ili.Spec.RootBinding.RootKind)
+	}
+	if ili.Spec.RootBinding.RootName != "cilium-v1-ccs-mgmt" {
+		t.Errorf("expected RootName=cilium-v1-ccs-mgmt, got %q", ili.Spec.RootBinding.RootName)
+	}
+
+	// Verify LineageSynced was transitioned to True via Status().Patch().
+	updatedRoot := &unstructured.Unstructured{}
+	updatedRoot.SetGroupVersionKind(packInstanceGVK)
+	if err := fakeClient.Get(context.Background(),
+		client.ObjectKey{Name: "cilium-v1-ccs-mgmt", Namespace: "ont-system"}, updatedRoot); err != nil {
+		t.Fatalf("get updated PackInstance: %v", err)
+	}
+
+	conditions, found, _ := unstructured.NestedSlice(updatedRoot.Object, "status", "conditions")
+	if !found || len(conditions) == 0 {
+		t.Fatal("expected status.conditions to be set on PackInstance after reconcile")
+	}
+
+	var lineageSyncedFound bool
+	for _, rawCond := range conditions {
+		cond, ok := rawCond.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if cond["type"] == "LineageSynced" {
+			lineageSyncedFound = true
+			if cond["status"] != string(metav1.ConditionTrue) {
+				t.Errorf("LineageSynced on PackInstance: got status=%v; want True", cond["status"])
+			}
+			if cond["reason"] != controller.ReasonLineageIndexCreated {
+				t.Errorf("LineageSynced on PackInstance: got reason=%v; want %q",
+					cond["reason"], controller.ReasonLineageIndexCreated)
+			}
+		}
+	}
+	if !lineageSyncedFound {
+		t.Error("LineageSynced condition not found on PackInstance after reconcile")
 	}
 }

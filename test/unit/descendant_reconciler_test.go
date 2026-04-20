@@ -90,7 +90,7 @@ func TestDescendantReconciler_AppendsEntryToILI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reconcile error: %v", err)
 	}
-	if result.Requeue {
+	if result.RequeueAfter != 0 {
 		t.Errorf("expected no requeue")
 	}
 

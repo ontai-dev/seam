@@ -102,6 +102,23 @@ func main() {
 		}
 	}
 
+	// Register one DescendantReconciler per derived-object GVK.
+	// Each reconciler watches its GVK and appends DescendantEntry records to the
+	// ILI named by the infrastructure.ontai.dev/root-ili label on each object.
+	// seam-core-schema.md §3, CLAUDE.md §14 Decision 4.
+	for _, gvk := range controller.DerivedObjectGVKs {
+		d := &controller.DescendantReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+			GVK:    gvk,
+		}
+		if err := d.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create DescendantReconciler",
+				"gvk", gvk.String())
+			os.Exit(1)
+		}
+	}
+
 	// Register DSNSReconciler — one instance per DSNS GVK, all sharing one DSNSState.
 	// seam-core-schema.md §8 Decision 1 — DSNS shares the existing informer cache.
 	dsnsState := idns.NewDSNSState(mgr.GetClient())

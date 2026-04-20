@@ -36,6 +36,7 @@ import (
 // Label keys operators must set on derived objects to trigger descendant tracking.
 const (
 	LabelRootILI           = "infrastructure.ontai.dev/root-ili"
+	LabelRootILINamespace  = lineage.LabelRootILINamespace
 	LabelSeamOperator      = "infrastructure.ontai.dev/seam-operator"
 	LabelCreationRationale = "infrastructure.ontai.dev/creation-rationale"
 )
@@ -45,6 +46,7 @@ const (
 // One DescendantReconciler instance is registered per GVK in main.go.
 var DerivedObjectGVKs = []schema.GroupVersionKind{
 	{Group: "runner.ontai.dev", Version: "v1alpha1", Kind: "RunnerConfig"},
+	{Group: "infra.ontai.dev", Version: "v1alpha1", Kind: "PackInstance"},
 }
 
 // DescendantReconciler watches a single derived-object GVK and appends
@@ -77,14 +79,22 @@ func (r *DescendantReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
+	// Resolve ILI namespace: use the explicit label when present (cross-namespace
+	// case, e.g. RunnerConfig in ont-system with ILI in seam-system), otherwise
+	// default to the derived object's own namespace. PLATFORM-BL-ILI-CROSS-NS.
+	iliNamespace := labels[LabelRootILINamespace]
+	if iliNamespace == "" {
+		iliNamespace = obj.GetNamespace()
+	}
+
 	// Fetch the referenced ILI.
 	ili := &seamv1alpha1.InfrastructureLineageIndex{}
-	iliKey := client.ObjectKey{Name: iliName, Namespace: obj.GetNamespace()}
+	iliKey := client.ObjectKey{Name: iliName, Namespace: iliNamespace}
 	if err := r.Client.Get(ctx, iliKey, ili); err != nil {
 		if apierrors.IsNotFound(err) {
 			// ILI not yet created -- requeue and wait for the LineageReconciler.
 			logger.Info("ILI not found, requeuing",
-				"ili", iliName, "namespace", obj.GetNamespace())
+				"ili", iliName, "namespace", iliNamespace)
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("get InfrastructureLineageIndex %s: %w", iliName, err)

@@ -40,6 +40,25 @@ func newRunnerConfig(name, namespace, iliName string) *unstructured.Unstructured
 	return u
 }
 
+// newRunnerConfigCrossNS builds a RunnerConfig with all four descendant labels,
+// including root-ili-namespace pointing to a different namespace than the RC itself.
+func newRunnerConfigCrossNS(name, rcNamespace, iliName, iliNamespace string) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(runnerConfigGVK)
+	u.SetName(name)
+	u.SetNamespace(rcNamespace)
+	u.SetUID(types.UID("uid-" + name))
+	u.SetGeneration(1)
+	labels := map[string]string{
+		controller.LabelRootILI:           iliName,
+		controller.LabelRootILINamespace:  iliNamespace,
+		controller.LabelSeamOperator:      "platform",
+		controller.LabelCreationRationale: string(lineage.ConductorAssignment),
+	}
+	u.SetLabels(labels)
+	return u
+}
+
 // newILIForDescendant builds a pre-existing ILI with nil DescendantRegistry.
 func newILIForDescendant(t *testing.T, name, namespace string) *seamv1alpha1.InfrastructureLineageIndex {
 	t.Helper()
@@ -150,6 +169,50 @@ func TestDescendantReconciler_Idempotent(t *testing.T) {
 	if len(got.Spec.DescendantRegistry) != 1 {
 		t.Errorf("DescendantRegistry: want exactly 1 entry after two reconciles, got %d",
 			len(got.Spec.DescendantRegistry))
+	}
+}
+
+// TestDescendantReconciler_CrossNamespaceILI verifies that a derived object in
+// ont-system carrying root-ili-namespace=seam-system correctly looks up the ILI
+// in seam-system, not in ont-system. Resolves PLATFORM-BL-ILI-CROSS-NS.
+func TestDescendantReconciler_CrossNamespaceILI(t *testing.T) {
+	const rcNamespace = "ont-system"
+	const iliNamespace = "seam-system"
+	const iliName = "taloscluster-ccs-dev"
+
+	// ILI lives in seam-system; RunnerConfig lives in ont-system.
+	ili := newILIForDescendant(t, iliName, iliNamespace)
+	rc := newRunnerConfigCrossNS("rc-bootstrap-ccs-dev", rcNamespace, iliName, iliNamespace)
+
+	r, c := buildDescendantReconciler(t, ili, rc)
+
+	result, err := r.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "rc-bootstrap-ccs-dev", Namespace: rcNamespace},
+	})
+	if err != nil {
+		t.Fatalf("Reconcile error: %v", err)
+	}
+	if result.RequeueAfter != 0 {
+		t.Errorf("expected no requeue: ILI should be found via cross-namespace label, RequeueAfter=%s", result.RequeueAfter)
+	}
+
+	got := &seamv1alpha1.InfrastructureLineageIndex{}
+	if err := c.Get(context.Background(),
+		client.ObjectKey{Name: iliName, Namespace: iliNamespace}, got); err != nil {
+		t.Fatalf("get ILI in seam-system: %v", err)
+	}
+	if len(got.Spec.DescendantRegistry) != 1 {
+		t.Fatalf("DescendantRegistry: want 1 entry, got %d", len(got.Spec.DescendantRegistry))
+	}
+	entry := got.Spec.DescendantRegistry[0]
+	if entry.Name != "rc-bootstrap-ccs-dev" {
+		t.Errorf("entry.Name = %q, want rc-bootstrap-ccs-dev", entry.Name)
+	}
+	if entry.Namespace != rcNamespace {
+		t.Errorf("entry.Namespace = %q, want %s", entry.Namespace, rcNamespace)
+	}
+	if entry.CreationRationale != lineage.ConductorAssignment {
+		t.Errorf("entry.CreationRationale = %q, want ConductorAssignment", entry.CreationRationale)
 	}
 }
 

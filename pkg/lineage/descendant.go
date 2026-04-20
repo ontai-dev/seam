@@ -1,6 +1,19 @@
 package lineage
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// IndexName returns the deterministic InfrastructureLineageIndex name for a
+// given root declaration kind and instance name. Format: {lowercasekind}-{name}.
+// This mirrors the private lineageIndexName function in the LineageController so
+// operators can compute the correct ILI reference without importing internal packages.
+// seam-core-schema.md §3.
+func IndexName(kind, name string) string {
+	return strings.ToLower(kind) + "-" + name
+}
 
 // SetDescendantLabels writes the three label keys required by the
 // DescendantReconciler onto a derived object. Operators call this at derived

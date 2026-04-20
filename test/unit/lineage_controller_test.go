@@ -91,7 +91,7 @@ func TestLineageReconciler_CreatesILIForTalosCluster(t *testing.T) {
 	}
 
 	result := reconcileRoot(t, r, "prod-cluster", "ont-system")
-	if result.Requeue || result.RequeueAfter != 0 {
+	if result.RequeueAfter != 0 {
 		t.Errorf("expected no requeue, got %+v", result)
 	}
 
@@ -226,7 +226,7 @@ func TestLineageReconciler_NotFound_NoError(t *testing.T) {
 	}
 
 	result := reconcileRoot(t, r, "missing-exec", "infra-system")
-	if result.Requeue || result.RequeueAfter != 0 {
+	if result.RequeueAfter != 0 {
 		t.Errorf("expected no requeue for not-found, got %+v", result)
 	}
 	// No ILI should be created.
@@ -316,7 +316,7 @@ func TestLineageReconciler_ILIRootBindingImmutable(t *testing.T) {
 
 	// Reconcile should succeed without attempting to recreate or modify the ILI.
 	result := reconcileRoot(t, r, "pack-v2", "infra-system")
-	if result.Requeue || result.RequeueAfter != 0 {
+	if result.RequeueAfter != 0 {
 		t.Errorf("expected no requeue on idempotent reconcile, got %+v", result)
 	}
 
@@ -762,7 +762,7 @@ func TestLineageReconciler_PackInstanceCreatesILIAndSetsLineageSynced(t *testing
 	}
 
 	result := reconcileRoot(t, r, "cilium-v1-ccs-mgmt", "ont-system")
-	if result.Requeue || result.RequeueAfter != 0 {
+	if result.RequeueAfter != 0 {
 		t.Errorf("expected no requeue, got %+v", result)
 	}
 

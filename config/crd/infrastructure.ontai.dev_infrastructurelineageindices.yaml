@@ -72,6 +72,19 @@ spec:
                     except by the retention enforcement loop (which removes stale entries after
                     the retention window elapses).
                   properties:
+                    actorRef:
+                      description: |-
+                        ActorRef is the identity propagated from rootBinding.declaringPrincipal.
+                        Every derived object entry carries the initiating human principal from the
+                        root of its causal chain. Immutable.
+                      type: string
+                    createdAt:
+                      description: |-
+                        CreatedAt is the time this descendant entry was appended to the registry.
+                        Used by the retention enforcement loop to determine when a stale entry
+                        (referenced object no longer exists) has exceeded its retention window.
+                      format: date-time
+                      type: string
                     creationRationale:
                       allOf:
                       - enum:
@@ -106,13 +119,6 @@ spec:
                       type: string
                     namespace:
                       description: Namespace is the namespace of the derived object.
-                      type: string
-                    recordedAt:
-                      description: |-
-                        RecordedAt is the time this descendant entry was appended to the registry.
-                        Used by the retention enforcement loop to determine when a stale entry
-                        (referenced object no longer exists) has exceeded its retention window.
-                      format: date-time
                       type: string
                     rootGenerationAtCreation:
                       description: |-
@@ -153,6 +159,53 @@ spec:
                   Set by the InfrastructureLineageController on creation. Validated by the
                   admission webhook: when present, must equal "infrastructure.core.ontai.dev".
                 type: string
+              outcomeRegistry:
+                description: |-
+                  OutcomeRegistry is the append-only registry of terminal outcomes for derived
+                  objects tracked in DescendantRegistry. Entries are appended by LineageController
+                  when a terminal condition is observed on a tracked derived object. Entries are
+                  never modified or removed. An outcomeRegistry entry supersedes but does not
+                  replace its corresponding DescendantRegistry entry.
+                items:
+                  description: |-
+                    OutcomeEntry records the terminal outcome for a derived object tracked in
+                    DescendantRegistry. Entries are appended by LineageController when a terminal
+                    condition is observed. Entries are never modified or removed.
+                  properties:
+                    derivedObjectUID:
+                      description: DerivedObjectUID is the UID matching a derived
+                        object entry in DescendantRegistry.
+                      type: string
+                    outcomeDetail:
+                      description: |-
+                        OutcomeDetail is a brief human-readable summary of the outcome written by
+                        LineageController from the terminal condition message. Optional.
+                      type: string
+                    outcomeRef:
+                      description: |-
+                        OutcomeRef is the name of the OperationResult ConfigMap or terminal condition
+                        reason that produced this outcome classification. Optional.
+                      type: string
+                    outcomeTimestamp:
+                      description: OutcomeTimestamp is the time when the terminal
+                        condition was observed.
+                      format: date-time
+                      type: string
+                    outcomeType:
+                      description: OutcomeType is the terminal classification of the
+                        derived object lifecycle.
+                      enum:
+                      - Succeeded
+                      - Failed
+                      - Drifted
+                      - Superseded
+                      type: string
+                  required:
+                  - derivedObjectUID
+                  - outcomeTimestamp
+                  - outcomeType
+                  type: object
+                type: array
               policyBindingStatus:
                 description: |-
                   PolicyBindingStatus records the InfrastructurePolicy and InfrastructureProfile
@@ -216,6 +269,13 @@ spec:
                   Immutable after admission. The admission webhook rejects any update that
                   modifies a field in this section.
                 properties:
+                  declaringPrincipal:
+                    description: |-
+                      DeclaringPrincipal is the identity of the human operator or automation
+                      principal that applied the root declaration CR. Stamped by the admission
+                      webhook via annotation infrastructure.ontai.dev/declaring-principal at
+                      CREATE time. Immutable after rootBinding is sealed.
+                    type: string
                   rootKind:
                     description: RootKind is the kind of the root declaration (e.g.,
                       TalosCluster, PackExecution).

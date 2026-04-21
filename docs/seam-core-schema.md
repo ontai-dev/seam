@@ -130,6 +130,14 @@ spec:
                     rootObservedGeneration:
                       type: integer
                       format: int64
+                    declaringPrincipal:
+                      type: string
+                      description: >
+                        Identity of the human operator or automation principal that
+                        applied the root declaration CR. Stamped by the admission
+                        webhook via annotation infrastructure.ontai.dev/declaring-principal
+                        at object creation time. Read by LineageController when creating
+                        the ILI. Immutable after rootBinding is sealed.
                 descendantRegistry:
                   type: array
                   description: >
@@ -166,6 +174,18 @@ spec:
                       rootGenerationAtCreation:
                         type: integer
                         format: int64
+                      createdAt:
+                        type: string
+                        format: date-time
+                        description: >
+                          Timestamp when DescendantReconciler appended this entry.
+                          Set to the reconciler's current time at append. Immutable.
+                      actorRef:
+                        type: string
+                        description: >
+                          Identity propagated from rootBinding.declaringPrincipal.
+                          Every derived object entry carries the initiating human
+                          principal from the root of its causal chain. Immutable.
                 policyBindingStatus:
                   type: object
                   description: >
@@ -185,6 +205,39 @@ spec:
                     driftDetected:
                       type: boolean
                       description: True if drift detected between expected and observed state.
+                outcomeRegistry:
+                  type: array
+                  description: >
+                    Append-only registry of terminal outcomes for derived objects
+                    tracked in descendantRegistry. Entries are appended by
+                    LineageController when a terminal condition is observed on a
+                    tracked derived object. Entries are never modified or removed.
+                  items:
+                    type: object
+                    required: [derivedObjectUID, outcomeType, outcomeTimestamp]
+                    properties:
+                      derivedObjectUID:
+                        type: string
+                        description: UID matching a derivedObject entry in descendantRegistry.
+                      outcomeType:
+                        type: string
+                        enum: [Succeeded, Failed, Drifted, Superseded]
+                        description: Terminal classification of the derived object lifecycle.
+                      outcomeTimestamp:
+                        type: string
+                        format: date-time
+                        description: Time when the terminal condition was observed.
+                      outcomeRef:
+                        type: string
+                        description: >
+                          Name of the OperationResult ConfigMap or terminal condition
+                          reason that produced this outcome classification. Optional.
+                      outcomeDetail:
+                        type: string
+                        description: >
+                          Brief human-readable summary of the outcome. Written by
+                          LineageController from the terminal condition message.
+                          Optional.
             status:
               type: object
               properties:
@@ -201,25 +254,28 @@ spec:
 
 #### spec.rootBinding (immutable after admission)
 
-| Field                  | Type   | Required | Description                                                             |
-|------------------------|--------|----------|-------------------------------------------------------------------------|
-| rootKind               | string | yes      | Kind of the root declaration                                            |
-| rootName               | string | yes      | Name of the root declaration                                            |
-| rootNamespace          | string | yes      | Namespace of the root declaration                                       |
-| rootUID                | string | yes      | UID of the root declaration at index creation time                      |
-| rootObservedGeneration | int64  | yes      | Root declaration generation when this index was created                 |
+| Field                  | Type   | Required | Description                                                                           |
+|------------------------|--------|----------|---------------------------------------------------------------------------------------|
+| rootKind               | string | yes      | Kind of the root declaration                                                          |
+| rootName               | string | yes      | Name of the root declaration                                                          |
+| rootNamespace          | string | yes      | Namespace of the root declaration                                                     |
+| rootUID                | string | yes      | UID of the root declaration at index creation time                                    |
+| rootObservedGeneration | int64  | yes      | Root declaration generation when this index was created                               |
+| declaringPrincipal     | string | no       | Identity of the principal that applied the root declaration CR. Stamped at CREATE time. Immutable. |
 
 #### spec.descendantRegistry[]
 
-| Field                    | Type   | Required | Description                                                            |
-|--------------------------|--------|----------|------------------------------------------------------------------------|
-| kind                     | string | yes      | Kind of the derived object                                             |
-| name                     | string | yes      | Name of the derived object                                             |
-| namespace                | string | yes      | Namespace of the derived object                                        |
-| uid                      | string | yes      | UID of the derived object                                              |
-| seamOperator             | string | yes      | Seam Operator that created this derived object                         |
-| creationRationale        | string | yes      | Value from `pkg/lineage.CreationRationale` enum                        |
-| rootGenerationAtCreation | int64  | yes      | Root declaration generation when derived object was created            |
+| Field                    | Type      | Required | Description                                                            |
+|--------------------------|-----------|----------|------------------------------------------------------------------------|
+| kind                     | string    | yes      | Kind of the derived object                                             |
+| name                     | string    | yes      | Name of the derived object                                             |
+| namespace                | string    | yes      | Namespace of the derived object                                        |
+| uid                      | string    | yes      | UID of the derived object                                              |
+| seamOperator             | string    | yes      | Seam Operator that created this derived object                         |
+| creationRationale        | string    | yes      | Value from `pkg/lineage.CreationRationale` enum                        |
+| rootGenerationAtCreation | int64     | yes      | Root declaration generation when derived object was created            |
+| createdAt                | date-time | no       | Timestamp when DescendantReconciler appended this entry. Immutable.    |
+| actorRef                 | string    | no       | Identity propagated from rootBinding.declaringPrincipal. Immutable.    |
 
 #### spec.policyBindingStatus
 
@@ -229,6 +285,20 @@ spec:
 | domainProfileRef                 | string  | no       | Name of the bound InfrastructureProfile                              |
 | policyGenerationAtLastEvaluation | int64   | no       | InfrastructurePolicy generation at last evaluation                   |
 | driftDetected                    | boolean | no       | True if drift detected at last evaluation                            |
+
+#### spec.outcomeRegistry[]
+
+| Field            | Type      | Required | Description                                                                          |
+|------------------|-----------|----------|--------------------------------------------------------------------------------------|
+| derivedObjectUID | string    | yes      | UID matching a derivedObject entry in descendantRegistry                             |
+| outcomeType      | string    | yes      | Terminal classification: Succeeded, Failed, Drifted, or Superseded                  |
+| outcomeTimestamp | date-time | yes      | Time when the terminal condition was observed                                        |
+| outcomeRef       | string    | no       | Name of the OperationResult ConfigMap or terminal condition reason. Optional.        |
+| outcomeDetail    | string    | no       | Brief human-readable summary written by LineageController. Optional.                 |
+
+Entries are appended monotonically. No entry is ever updated or removed. An
+outcomeRegistry entry for a given derivedObjectUID supersedes but does not replace
+its corresponding descendantRegistry entry. Both records are permanent.
 
 ---
 
@@ -379,6 +449,28 @@ This structure ensures that annotations under the governance sub-prefix carry th
 same authorship integrity guarantee as the `InfrastructureLineageIndex` itself:
 they are controller-authored by a single, designated authority, not overwritten by
 arbitrary operators.
+
+---
+
+### Declaration 6 - outcomeRegistry is the terminal closure protocol
+
+When LineageController observes a terminal condition on any tracked derived object,
+it appends an outcomeRegistry entry before the next reconcile cycle begins. An
+outcomeRegistry entry for a given derivedObjectUID supersedes but does not replace
+its corresponding descendantRegistry entry. Both records are permanent.
+
+Terminal condition observation is event-driven: LineageController watches all nine
+root-declaration GVKs via its existing informer cache. On any status condition
+transition to a terminal type (Succeeded, Failed, Drifted, or Superseded), the
+controller appends the corresponding outcomeRegistry entry to the governing ILI
+using an SSA patch. The patch is idempotent: if an entry already exists for the
+given derivedObjectUID, the patch is a no-op. The append-only invariant is enforced
+at admission: any write that modifies an existing outcomeRegistry entry is rejected.
+
+This protocol closes the causal chain: every derived object has both its creation
+recorded (descendantRegistry) and its terminal outcome recorded (outcomeRegistry)
+within the same ILI. Vortex retrieval can reconstruct the full lifecycle of any
+derived object without querying the derived object's namespace.
 
 ---
 
@@ -569,3 +661,15 @@ are optional or best-effort.
 
 *seam-core-schema - Seam Core infrastructure domain*
 *This document is authored and amended by the Platform Governor and Schema Engineer only.*
+
+2026-04-21 - Amended to inherit domain-core-schema.md amendments from session/12.
+  declaringPrincipal added to spec.rootBinding: identity of the principal that applied
+  the root declaration CR, stamped by the admission webhook at CREATE time, immutable.
+  createdAt and actorRef added to spec.descendantRegistry entries: createdAt is the
+  reconciler timestamp at append time; actorRef propagates declaringPrincipal from the
+  root ILI down to every derived object entry. Both immutable.
+  outcomeRegistry added as a new append-only spec section: terminal outcome records
+  written by LineageController on terminal condition observation. outcomeType enum:
+  Succeeded, Failed, Drifted, Superseded. outcomeRef and outcomeDetail optional.
+  Declaration 6 added: outcomeRegistry terminal closure protocol. Entries are permanent.
+  outcomeRegistry entry supersedes but does not replace descendantRegistry entry.

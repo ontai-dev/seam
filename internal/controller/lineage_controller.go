@@ -265,13 +265,23 @@ func (r *LineageReconciler) writeGovernanceAnnotation(ctx context.Context, root 
 // This is the ownership-transfer write described in seam-core-schema.md §7 Declaration 5.
 // It is idempotent — if LineageSynced is already True, no status patch is issued.
 //
-// root must be the current in-memory state of the root declaration, including any
-// ResourceVersion updates from prior Patch() calls in the same reconcile cycle.
-// writeGovernanceAnnotation updates root in-place, so root already has the latest
-// ResourceVersion when this method is called — no re-fetch required.
+// A fresh GET is issued before building the patch to avoid overwriting conditions
+// set by other reconcilers (e.g. RBACPolicyValid) between the initial reconcile
+// Get and this status write. Without the re-fetch, a JSON Merge Patch on a stale
+// conditions array would silently discard conditions written by concurrent reconcilers.
 func (r *LineageReconciler) ensureLineageSyncedTrue(ctx context.Context, root *unstructured.Unstructured, iliName string) error {
+	// Re-fetch the root declaration to obtain the latest conditions. Other
+	// reconcilers (e.g. RBACPolicyReconciler) may have written conditions after
+	// the initial Get in Reconcile(). Using stale data here would cause those
+	// conditions to be lost when we patch the conditions array.
+	fresh := &unstructured.Unstructured{}
+	fresh.SetGroupVersionKind(root.GroupVersionKind())
+	if err := r.Client.Get(ctx, client.ObjectKey{Name: root.GetName(), Namespace: root.GetNamespace()}, fresh); err != nil {
+		return fmt.Errorf("re-fetch root for LineageSynced patch: %w", err)
+	}
+
 	// Read current conditions from status.
-	rawConditions, _, _ := unstructured.NestedSlice(root.Object, "status", "conditions")
+	rawConditions, _, _ := unstructured.NestedSlice(fresh.Object, "status", "conditions")
 
 	// Check if LineageSynced is already True — idempotency guard.
 	for _, rawCond := range rawConditions {
@@ -293,7 +303,7 @@ func (r *LineageReconciler) ensureLineageSyncedTrue(ctx context.Context, root *u
 		"reason":             ReasonLineageIndexCreated,
 		"message":            fmt.Sprintf("InfrastructureLineageIndex %q created by InfrastructureLineageController.", iliName),
 		"lastTransitionTime": now,
-		"observedGeneration": root.GetGeneration(),
+		"observedGeneration": fresh.GetGeneration(),
 	}
 
 	// Replace existing LineageSynced entry or append new one.
@@ -312,14 +322,11 @@ func (r *LineageReconciler) ensureLineageSyncedTrue(ctx context.Context, root *u
 		updated = append(updated, newCondition)
 	}
 
-	// Capture patchBase before mutating root's status.
-	// root.Patch() (called by writeGovernanceAnnotation) updates root in-place, so
-	// root already has the latest ResourceVersion at this point.
-	patchBase := root.DeepCopyObject().(client.Object)
-	if err := unstructured.SetNestedSlice(root.Object, updated, "status", "conditions"); err != nil {
+	patchBase := fresh.DeepCopyObject().(client.Object)
+	if err := unstructured.SetNestedSlice(fresh.Object, updated, "status", "conditions"); err != nil {
 		return fmt.Errorf("failed to set conditions in unstructured: %w", err)
 	}
-	return r.Client.Status().Patch(ctx, root, client.MergeFrom(patchBase))
+	return r.Client.Status().Patch(ctx, fresh, client.MergeFrom(patchBase))
 }
 
 // defaultDescendantRetentionDays is the default number of days a stale descendant

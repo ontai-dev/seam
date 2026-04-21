@@ -402,7 +402,7 @@ func TestLineageReconciler_AllRootDeclarationGVKsRegistered(t *testing.T) {
 // --- Retention policy tests ---
 
 // newILIWithDescendants builds an InfrastructureLineageIndex with a pre-populated
-// DescendantRegistry for retention tests. Each entry's RecordedAt is set to the
+// DescendantRegistry for retention tests. Each entry's CreatedAt is set to the
 // provided age ago.
 func newILIWithDescendants(t *testing.T, name, namespace string, entries []seamv1alpha1.DescendantEntry) *seamv1alpha1.InfrastructureLineageIndex {
 	t.Helper()
@@ -426,14 +426,14 @@ func newILIWithDescendants(t *testing.T, name, namespace string, entries []seamv
 }
 
 // TestLineageReconciler_RetentionPrunesStaleEntry verifies that a descendant entry
-// whose referenced object is not-found AND whose RecordedAt is older than the retention
+// whose referenced object is not-found AND whose CreatedAt is older than the retention
 // window is pruned from the DescendantRegistry on the next reconcile cycle.
 func TestLineageReconciler_RetentionPrunesStaleEntry(t *testing.T) {
 	s := newTestScheme(t)
 	const ns = "test-ns"
 	root := newRootDeclaration(talosClusterGVK, "cluster-a", ns)
 
-	// Build an ILI with one stale entry: RecordedAt 31 days ago, retention=30 days.
+	// Build an ILI with one stale entry: CreatedAt 31 days ago, retention=30 days.
 	// The referenced object (some-runnerconfig) does not exist in the fake client.
 	staleTime := metav1.NewTime(time.Now().Add(-31 * 24 * time.Hour))
 	ili := newILIWithDescendants(t, "taloscluster-cluster-a", ns, []seamv1alpha1.DescendantEntry{
@@ -445,7 +445,7 @@ func TestLineageReconciler_RetentionPrunesStaleEntry(t *testing.T) {
 			Namespace:         ns,
 			UID:               "uid-rc-1",
 			SeamOperator:      "conductor",
-			RecordedAt:        &staleTime,
+			CreatedAt:        &staleTime,
 		},
 	})
 	ili.Spec.RetentionPolicy = &seamv1alpha1.LineageRetentionPolicy{
@@ -477,14 +477,14 @@ func TestLineageReconciler_RetentionPrunesStaleEntry(t *testing.T) {
 }
 
 // TestLineageReconciler_RetentionKeepsEntryWithinWindow verifies that a descendant
-// entry whose RecordedAt is within the retention window is NOT pruned even when the
+// entry whose CreatedAt is within the retention window is NOT pruned even when the
 // referenced object is not-found.
 func TestLineageReconciler_RetentionKeepsEntryWithinWindow(t *testing.T) {
 	s := newTestScheme(t)
 	const ns = "test-ns"
 	root := newRootDeclaration(talosClusterGVK, "cluster-b", ns)
 
-	// RecordedAt 5 days ago, retention=30 days — entry is within window.
+	// CreatedAt 5 days ago, retention=30 days — entry is within window.
 	recentTime := metav1.NewTime(time.Now().Add(-5 * 24 * time.Hour))
 	ili := newILIWithDescendants(t, "taloscluster-cluster-b", ns, []seamv1alpha1.DescendantEntry{
 		{
@@ -495,7 +495,7 @@ func TestLineageReconciler_RetentionKeepsEntryWithinWindow(t *testing.T) {
 			Namespace:    ns,
 			UID:          "uid-rc-2",
 			SeamOperator: "conductor",
-			RecordedAt:   &recentTime,
+			CreatedAt:   &recentTime,
 		},
 	})
 	ili.Spec.RetentionPolicy = &seamv1alpha1.LineageRetentionPolicy{
@@ -526,14 +526,14 @@ func TestLineageReconciler_RetentionKeepsEntryWithinWindow(t *testing.T) {
 	}
 }
 
-// TestLineageReconciler_RetentionKeepsEntryWithNilRecordedAt verifies that an entry
-// without a RecordedAt timestamp (pre-retention-tracking entry) is never pruned.
-func TestLineageReconciler_RetentionKeepsEntryWithNilRecordedAt(t *testing.T) {
+// TestLineageReconciler_RetentionKeepsEntryWithNilCreatedAt verifies that an entry
+// without a CreatedAt timestamp (pre-retention-tracking entry) is never pruned.
+func TestLineageReconciler_RetentionKeepsEntryWithNilCreatedAt(t *testing.T) {
 	s := newTestScheme(t)
 	const ns = "test-ns"
 	root := newRootDeclaration(talosClusterGVK, "cluster-c", ns)
 
-	// RecordedAt is nil — entry predates retention tracking.
+	// CreatedAt is nil — entry predates retention tracking.
 	ili := newILIWithDescendants(t, "taloscluster-cluster-c", ns, []seamv1alpha1.DescendantEntry{
 		{
 			Group:        "runner.ontai.dev",
@@ -543,7 +543,7 @@ func TestLineageReconciler_RetentionKeepsEntryWithNilRecordedAt(t *testing.T) {
 			Namespace:    ns,
 			UID:          "uid-rc-3",
 			SeamOperator: "conductor",
-			RecordedAt:   nil,
+			CreatedAt:   nil,
 		},
 	})
 	ili.Spec.RetentionPolicy = &seamv1alpha1.LineageRetentionPolicy{
@@ -568,9 +568,9 @@ func TestLineageReconciler_RetentionKeepsEntryWithNilRecordedAt(t *testing.T) {
 	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "taloscluster-cluster-c", Namespace: ns}, updatedILI); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
-	// Entry without RecordedAt must never be pruned.
+	// Entry without CreatedAt must never be pruned.
 	if len(updatedILI.Spec.DescendantRegistry) != 1 {
-		t.Errorf("expected entry with nil RecordedAt to be kept, got %d entries", len(updatedILI.Spec.DescendantRegistry))
+		t.Errorf("expected entry with nil CreatedAt to be kept, got %d entries", len(updatedILI.Spec.DescendantRegistry))
 	}
 }
 

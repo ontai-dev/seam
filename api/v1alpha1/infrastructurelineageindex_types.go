@@ -41,6 +41,13 @@ type InfrastructureLineageIndexRootBinding struct {
 	// RootObservedGeneration is the metadata.generation of the root declaration
 	// when this index was created.
 	RootObservedGeneration int64 `json:"rootObservedGeneration"`
+
+	// DeclaringPrincipal is the identity of the human operator or automation
+	// principal that applied the root declaration CR. Stamped by the admission
+	// webhook via annotation infrastructure.ontai.dev/declaring-principal at
+	// CREATE time. Immutable after rootBinding is sealed.
+	// +optional
+	DeclaringPrincipal string `json:"declaringPrincipal,omitempty"`
 }
 
 // DescendantEntry records a single derived object in the lineage index.
@@ -80,12 +87,18 @@ type DescendantEntry struct {
 	// at the time this derived object was created.
 	RootGenerationAtCreation int64 `json:"rootGenerationAtCreation"`
 
-	// RecordedAt is the time this descendant entry was appended to the registry.
+	// CreatedAt is the time this descendant entry was appended to the registry.
 	// Used by the retention enforcement loop to determine when a stale entry
 	// (referenced object no longer exists) has exceeded its retention window.
 	//
 	// +optional
-	RecordedAt *metav1.Time `json:"recordedAt,omitempty"`
+	CreatedAt *metav1.Time `json:"createdAt,omitempty"`
+
+	// ActorRef is the identity propagated from rootBinding.declaringPrincipal.
+	// Every derived object entry carries the initiating human principal from the
+	// root of its causal chain. Immutable.
+	// +optional
+	ActorRef string `json:"actorRef,omitempty"`
 }
 
 // InfrastructurePolicyBindingStatus records the InfrastructurePolicy and
@@ -111,6 +124,42 @@ type InfrastructurePolicyBindingStatus struct {
 	// derived objects at the last evaluation.
 	// +optional
 	DriftDetected bool `json:"driftDetected,omitempty"`
+}
+
+// OutcomeType is the terminal lifecycle classification for a derived object.
+//
+// +kubebuilder:validation:Enum=Succeeded;Failed;Drifted;Superseded
+type OutcomeType string
+
+const (
+	OutcomeTypeSucceeded  OutcomeType = "Succeeded"
+	OutcomeTypeFailed     OutcomeType = "Failed"
+	OutcomeTypeDrifted    OutcomeType = "Drifted"
+	OutcomeTypeSuperseded OutcomeType = "Superseded"
+)
+
+// OutcomeEntry records the terminal outcome for a derived object tracked in
+// DescendantRegistry. Entries are appended by LineageController when a terminal
+// condition is observed. Entries are never modified or removed.
+type OutcomeEntry struct {
+	// DerivedObjectUID is the UID matching a derived object entry in DescendantRegistry.
+	DerivedObjectUID types.UID `json:"derivedObjectUID"`
+
+	// OutcomeType is the terminal classification of the derived object lifecycle.
+	OutcomeType OutcomeType `json:"outcomeType"`
+
+	// OutcomeTimestamp is the time when the terminal condition was observed.
+	OutcomeTimestamp metav1.Time `json:"outcomeTimestamp"`
+
+	// OutcomeRef is the name of the OperationResult ConfigMap or terminal condition
+	// reason that produced this outcome classification. Optional.
+	// +optional
+	OutcomeRef string `json:"outcomeRef,omitempty"`
+
+	// OutcomeDetail is a brief human-readable summary of the outcome written by
+	// LineageController from the terminal condition message. Optional.
+	// +optional
+	OutcomeDetail string `json:"outcomeDetail,omitempty"`
 }
 
 // LineageRetentionPolicy declares how stale descendant entries and the index itself
@@ -166,6 +215,14 @@ type InfrastructureLineageIndexSpec struct {
 	// bound to the root declaration at last evaluation.
 	// +optional
 	PolicyBindingStatus *InfrastructurePolicyBindingStatus `json:"policyBindingStatus,omitempty"`
+
+	// OutcomeRegistry is the append-only registry of terminal outcomes for derived
+	// objects tracked in DescendantRegistry. Entries are appended by LineageController
+	// when a terminal condition is observed on a tracked derived object. Entries are
+	// never modified or removed. An outcomeRegistry entry supersedes but does not
+	// replace its corresponding DescendantRegistry entry.
+	// +optional
+	OutcomeRegistry []OutcomeEntry `json:"outcomeRegistry,omitempty"`
 
 	// RetentionPolicy declares garbage collection behavior for this index and its
 	// stale descendant entries. If absent, controller defaults apply

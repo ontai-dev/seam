@@ -39,6 +39,7 @@ const (
 	LabelRootILINamespace  = lineage.LabelRootILINamespace
 	LabelSeamOperator      = "infrastructure.ontai.dev/seam-operator"
 	LabelCreationRationale = "infrastructure.ontai.dev/creation-rationale"
+	LabelActorRef          = lineage.LabelActorRef
 )
 
 // DerivedObjectGVKs lists the derived-object GVKs that the DescendantReconciler
@@ -121,7 +122,8 @@ func (r *DescendantReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		SeamOperator:             labels[LabelSeamOperator],
 		CreationRationale:        lineage.CreationRationale(labels[LabelCreationRationale]),
 		RootGenerationAtCreation: obj.GetGeneration(),
-		RecordedAt:               &now,
+		CreatedAt:                &now,
+		ActorRef:                 labels[LabelActorRef],
 	}
 
 	// Append to DescendantRegistry via patch.

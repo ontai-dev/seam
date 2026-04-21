@@ -137,8 +137,8 @@ func TestDescendantReconciler_AppendsEntryToILI(t *testing.T) {
 	if entry.CreationRationale != lineage.ClusterProvision {
 		t.Errorf("entry.CreationRationale = %q, want %q", entry.CreationRationale, lineage.ClusterProvision)
 	}
-	if entry.RecordedAt == nil {
-		t.Errorf("entry.RecordedAt must be set")
+	if entry.CreatedAt == nil {
+		t.Errorf("entry.CreatedAt must be set")
 	}
 }
 

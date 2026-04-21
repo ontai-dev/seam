@@ -168,7 +168,7 @@ func (r *LineageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Step Cf — Prune stale descendant entries from the DescendantRegistry.
 	// An entry is pruned when the referenced object is confirmed not-found AND
-	// the entry's RecordedAt timestamp is older than the retention window.
+	// the entry's CreatedAt timestamp is older than the retention window.
 	// conductor-schema.md (retention enforcement).
 	if err := r.pruneStaleDescendants(ctx, ili); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to prune stale descendants: %w", err)
@@ -317,11 +317,11 @@ func (r *LineageReconciler) ensureLineageSyncedTrue(ctx context.Context, root *u
 const defaultDescendantRetentionDays = 30
 
 // pruneStaleDescendants inspects each entry in the ILI DescendantRegistry. If the
-// entry's referenced object is not-found in the API server AND the entry's RecordedAt
+// entry's referenced object is not-found in the API server AND the entry's CreatedAt
 // timestamp is older than the effective retention window, the entry is removed from
 // the registry. The registry is patched only if at least one entry was pruned.
 //
-// A nil RecordedAt timestamp means the entry predates retention tracking — the entry
+// A nil CreatedAt timestamp means the entry predates retention tracking — the entry
 // is never pruned to preserve backward compatibility.
 func (r *LineageReconciler) pruneStaleDescendants(ctx context.Context, ili *seamv1alpha1.InfrastructureLineageIndex) error {
 	if len(ili.Spec.DescendantRegistry) == 0 {
@@ -340,13 +340,13 @@ func (r *LineageReconciler) pruneStaleDescendants(ctx context.Context, ili *seam
 	pruned := false
 
 	for _, entry := range ili.Spec.DescendantRegistry {
-		// Entries without RecordedAt predate retention tracking — always keep.
-		if entry.RecordedAt == nil {
+		// Entries without CreatedAt predate retention tracking — always keep.
+		if entry.CreatedAt == nil {
 			kept = append(kept, entry)
 			continue
 		}
 		// Keep entries within the retention window regardless of object existence.
-		if time.Since(entry.RecordedAt.Time) < retentionWindow {
+		if time.Since(entry.CreatedAt.Time) < retentionWindow {
 			kept = append(kept, entry)
 			continue
 		}
@@ -373,7 +373,7 @@ func (r *LineageReconciler) pruneStaleDescendants(ctx context.Context, ili *seam
 		// Object is not-found and retention window elapsed — prune.
 		logger.Info("pruning stale descendant entry",
 			"kind", entry.Kind, "name", entry.Name, "namespace", entry.Namespace,
-			"recordedAt", entry.RecordedAt, "retentionDays", retentionDays)
+			"createdAt", entry.CreatedAt, "retentionDays", retentionDays)
 		pruned = true
 	}
 

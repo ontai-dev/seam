@@ -10,13 +10,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
-	"github.com/ontai-dev/seam-core/pkg/lineage"
 )
 
 // OutcomeReconciler watches derived object GVKs and appends OutcomeEntry records
@@ -179,27 +177,4 @@ func (r *OutcomeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("outcome-" + strings.ToLower(r.GVK.Kind)).
 		For(u).
 		Complete(r)
-}
-
-// outcomeReconcilerForUID returns an OutcomeEntry pointer from the ILI's
-// outcomeRegistry that matches the given UID, or nil if not found.
-// Used in tests only.
-func outcomeReconcilerForUID(ili *seamv1alpha1.InfrastructureLineageIndex, uid types.UID) *seamv1alpha1.OutcomeEntry {
-	for i := range ili.Spec.OutcomeRegistry {
-		if ili.Spec.OutcomeRegistry[i].DerivedObjectUID == uid {
-			return &ili.Spec.OutcomeRegistry[i]
-		}
-	}
-	return nil
-}
-
-// declaringPrincipalFromAnnotation reads the declaring-principal annotation from
-// a root declaration root and returns its value. Returns "system:unknown" when absent.
-// Used by buildILI. seam-core-schema.md §7 Declaration 6.
-func declaringPrincipalFromAnnotation(root *unstructured.Unstructured) string {
-	v := root.GetAnnotations()[lineage.AnnotationDeclaringPrincipal]
-	if v == "" {
-		return "system:unknown"
-	}
-	return v
 }

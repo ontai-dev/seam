@@ -151,6 +151,22 @@ type PackOperationResultSpec struct {
 	// Steps contains individual step results for multi-step capabilities.
 	// +optional
 	Steps []PackOperationStepResult `json:"steps,omitempty"`
+
+	// Revision is the monotonically increasing revision counter for this pack operation
+	// sequence. Incremented each time a new result supersedes the previous one.
+	// +optional
+	Revision int64 `json:"revision,omitempty"`
+
+	// PreviousRevisionRef is the name of the PackOperationResult CR deleted when
+	// this revision was written. Enables chain reconstruction for the full operation history.
+	// Absent for revision 1 (no predecessor).
+	// +optional
+	PreviousRevisionRef string `json:"previousRevisionRef,omitempty"`
+
+	// TalosClusterOperationResultRef is reserved for future cross-reference to a
+	// TalosCluster-scoped OperationResult. Stub field; not populated by any current controller.
+	// +optional
+	TalosClusterOperationResultRef string `json:"talosClusterOperationResultRef,omitempty"`
 }
 
 // PackOperationResultStatus is the observed state of a PackOperationResult.

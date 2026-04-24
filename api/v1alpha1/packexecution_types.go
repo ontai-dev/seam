@@ -6,11 +6,23 @@ import (
 	"github.com/ontai-dev/seam-core/pkg/lineage"
 )
 
+// InfrastructureClusterPackRef identifies a specific ClusterPack by name and version.
+// wrapper-schema.md §3 PackExecution spec.clusterPackRef.
+type InfrastructureClusterPackRef struct {
+	// Name is the name of the ClusterPack CR.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Version is the expected version of the ClusterPack. Guards against name reuse.
+	// +kubebuilder:validation:MinLength=1
+	Version string `json:"version"`
+}
+
 // InfrastructurePackExecutionSpec defines the desired state of an InfrastructurePackExecution.
 // wrapper-schema.md §3.
 type InfrastructurePackExecutionSpec struct {
-	// ClusterPackRef is the name of the ClusterPack CR to execute.
-	ClusterPackRef string `json:"clusterPackRef"`
+	// ClusterPackRef identifies the ClusterPack to deploy.
+	ClusterPackRef InfrastructureClusterPackRef `json:"clusterPackRef"`
 
 	// TargetClusterRef is the name of the target cluster to deliver the pack to.
 	TargetClusterRef string `json:"targetClusterRef"`
@@ -46,6 +58,15 @@ type InfrastructurePackExecutionStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// JobName is the name of the pack-deploy Kueue Job submitted for this execution.
+	// +optional
+	JobName string `json:"jobName,omitempty"`
+
+	// OperationResultRef is the name of the PackOperationResult CR written after
+	// successful pack-deploy Job completion.
+	// +optional
+	OperationResultRef string `json:"operationResultRef,omitempty"`
+
 	// Conditions is the list of status conditions for this PackExecution.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -54,7 +75,7 @@ type InfrastructurePackExecutionStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=ipe
-// +kubebuilder:printcolumn:name="Pack",type=string,JSONPath=".spec.clusterPackRef"
+// +kubebuilder:printcolumn:name="Pack",type=string,JSONPath=".spec.clusterPackRef.name"
 // +kubebuilder:printcolumn:name="Target",type=string,JSONPath=".spec.targetClusterRef"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 

@@ -141,12 +141,15 @@ func TestInfrastructurePackExecution_RequiredFields(t *testing.T) {
 	t.Parallel()
 	pe := v1alpha1.InfrastructurePackExecution{
 		Spec: v1alpha1.InfrastructurePackExecutionSpec{
-			ClusterPackRef:   "cert-manager-helm-v1.14.0-r1",
+			ClusterPackRef: v1alpha1.InfrastructureClusterPackRef{
+				Name:    "cert-manager-helm-v1.14.0-r1",
+				Version: "v1.14.0-r1",
+			},
 			TargetClusterRef: "ccs-mgmt",
 		},
 	}
-	if pe.Spec.ClusterPackRef == "" {
-		t.Fatal("ClusterPackRef must be set")
+	if pe.Spec.ClusterPackRef.Name == "" {
+		t.Fatal("ClusterPackRef.Name must be set")
 	}
 	if pe.Spec.TargetClusterRef == "" {
 		t.Fatal("TargetClusterRef must be set")
@@ -161,7 +164,10 @@ func TestInfrastructurePackExecution_LineageFieldPresent(t *testing.T) {
 	}
 	pe := v1alpha1.InfrastructurePackExecution{
 		Spec: v1alpha1.InfrastructurePackExecutionSpec{
-			ClusterPackRef:   "cert-manager-helm-v1.14.0-r1",
+			ClusterPackRef: v1alpha1.InfrastructureClusterPackRef{
+				Name:    "cert-manager-helm-v1.14.0-r1",
+				Version: "v1.14.0-r1",
+			},
 			TargetClusterRef: "ccs-mgmt",
 			Lineage:          chain,
 		},

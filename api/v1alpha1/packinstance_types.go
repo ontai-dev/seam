@@ -4,6 +4,52 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// InfrastructureDriftPolicy controls how dependency drift is handled.
+// wrapper-schema.md §3 PackInstance spec.dependencyPolicy.onDrift.
+type InfrastructureDriftPolicy string
+
+const (
+	// InfrastructureDriftPolicyBlock stops all further pack ops on this cluster
+	// when a dependency PackInstance reports Drifted=True.
+	InfrastructureDriftPolicyBlock InfrastructureDriftPolicy = "Block"
+
+	// InfrastructureDriftPolicyWarn emits a warning event when a dependency
+	// PackInstance reports Drifted=True but does not block further pack ops.
+	InfrastructureDriftPolicyWarn InfrastructureDriftPolicy = "Warn"
+
+	// InfrastructureDriftPolicyIgnore takes no action when a dependency
+	// PackInstance reports Drifted=True.
+	InfrastructureDriftPolicyIgnore InfrastructureDriftPolicy = "Ignore"
+)
+
+// InfrastructureDependencyPolicy defines behavior when a dependency PackInstance reports drift.
+// wrapper-schema.md §3 PackInstance spec.dependencyPolicy.
+type InfrastructureDependencyPolicy struct {
+	// OnDrift controls how this PackInstance responds when a declared dependency
+	// PackInstance reports Drifted=True.
+	// +kubebuilder:validation:Enum=Block;Warn;Ignore
+	// +kubebuilder:default=Warn
+	OnDrift InfrastructureDriftPolicy `json:"onDrift,omitempty"`
+}
+
+// InfrastructureDeployedResourceRef records a single Kubernetes resource applied
+// by the pack-deploy job. Used by the PackInstance deletion handler to clean up
+// deployed workload when the ClusterPack is deleted. wrapper-schema.md §3.
+type InfrastructureDeployedResourceRef struct {
+	// APIVersion is the Kubernetes apiVersion (e.g., apps/v1, v1).
+	APIVersion string `json:"apiVersion"`
+
+	// Kind is the Kubernetes resource Kind (e.g., Deployment, Namespace).
+	Kind string `json:"kind"`
+
+	// Namespace is the resource namespace. Empty for cluster-scoped resources.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// Name is the resource name.
+	Name string `json:"name"`
+}
+
 // InfrastructurePackInstanceSpec defines the desired state of an InfrastructurePackInstance.
 // wrapper-schema.md §3.
 type InfrastructurePackInstanceSpec struct {
@@ -20,9 +66,9 @@ type InfrastructurePackInstanceSpec struct {
 	// +optional
 	DependsOn []string `json:"dependsOn,omitempty"`
 
-	// DependencyPolicy controls how dependency failures affect this instance.
+	// DependencyPolicy defines behavior when a dependency reports drift.
 	// +optional
-	DependencyPolicy string `json:"dependencyPolicy,omitempty"`
+	DependencyPolicy *InfrastructureDependencyPolicy `json:"dependencyPolicy,omitempty"`
 
 	// ChartVersion is the Helm chart version for this instance. Carried from ClusterPack.
 	// +optional
@@ -46,6 +92,25 @@ type InfrastructurePackInstanceStatus struct {
 	// ObservedGeneration is the generation most recently reconciled.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// DeliveredAt records when the pack was most recently confirmed delivered.
+	// +optional
+	DeliveredAt *metav1.Time `json:"deliveredAt,omitempty"`
+
+	// DriftSummary is a human-readable summary of the current drift state.
+	// +optional
+	DriftSummary string `json:"driftSummary,omitempty"`
+
+	// UpgradeDirection records the version transition direction for the last deployment.
+	// Initial: first deployment. Upgrade: newer version. Rollback: older version. Redeploy: same version.
+	// +optional
+	// +kubebuilder:validation:Enum=Initial;Upgrade;Rollback;Redeploy
+	UpgradeDirection string `json:"upgradeDirection,omitempty"`
+
+	// DeployedResources is the list of Kubernetes resources applied by the pack-deploy job.
+	// Used by the PackInstance deletion handler for cleanup.
+	// +optional
+	DeployedResources []InfrastructureDeployedResourceRef `json:"deployedResources,omitempty"`
 
 	// Conditions is the list of status conditions for this PackInstance.
 	// +optional

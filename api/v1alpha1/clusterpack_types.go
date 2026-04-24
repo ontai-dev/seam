@@ -2,7 +2,19 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/ontai-dev/seam-core/pkg/lineage"
 )
+
+// InfrastructureLifecyclePolicy controls artifact retention behavior.
+// wrapper-schema.md §3 ClusterPack spec.lifecyclePolicies.
+type InfrastructureLifecyclePolicy struct {
+	// RetainOnDeletion controls whether the OCI artifact is retained when the
+	// ClusterPack CR is deleted. Default: true (artifact retained).
+	// +optional
+	// +kubebuilder:default=true
+	RetainOnDeletion bool `json:"retainOnDeletion,omitempty"`
+}
 
 // InfrastructurePackRegistryRef identifies the OCI artifact for a ClusterPack.
 type InfrastructurePackRegistryRef struct {
@@ -102,6 +114,16 @@ type InfrastructureClusterPackSpec struct {
 	// HelmVersion is the version of the Helm SDK used to render this pack.
 	// +optional
 	HelmVersion string `json:"helmVersion,omitempty"`
+
+	// LifecyclePolicies controls artifact retention behavior.
+	// +optional
+	LifecyclePolicies *InfrastructureLifecyclePolicy `json:"lifecyclePolicies,omitempty"`
+
+	// Lineage is the sealed causal chain record for this root declaration.
+	// Authored once at object creation time and immutable thereafter.
+	// seam-core-schema.md §5, CLAUDE.md §14 Decision 1.
+	// +optional
+	Lineage *lineage.SealedCausalChain `json:"lineage,omitempty"`
 }
 
 // InfrastructureClusterPackStatus is the observed state of an InfrastructureClusterPack.

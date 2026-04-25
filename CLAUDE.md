@@ -6,8 +6,8 @@ Primary: docs/seam-core-schema.md
 Supporting: ~/ontai/domain-core/docs/domain-core-schema.md (DomainLineageIndex schema owner)
 
 ### Invariants
-SC-INV-001 -- seam-core owns CRD definitions. Reconcilers for those CRDs live in the operator repos that own the domain logic, not in seam-core.
-SC-INV-002 -- RunnerConfig CRD transfer from conductor shared library to seam-core is a governed migration. Requires a Governor-scheduled migration session before execution.
+SC-INV-001 -- seam-core owns all cross-operator CRD definitions under infrastructure.ontai.dev. The complete set of seam-core-owned types is: InfrastructureLineageIndex, InfrastructureRunnerConfig, InfrastructurePackReceipt, InfrastructureClusterPack, InfrastructurePackExecution, InfrastructurePackInstance, InfrastructurePackBuild, InfrastructureTalosCluster, DriftSignal, InfrastructurePolicy, InfrastructureProfile. Reconcilers for these CRDs live in the operator repos that own the domain logic, not in seam-core.
+SC-INV-002 -- RunnerConfig and all cross-operator CRD type migrations to seam-core are complete as of Phase 2B (2026-04-25). No further governed migration sessions are required. The old API groups runner.ontai.dev and infra.ontai.dev are superseded. All new CRD work goes directly into seam-core under infrastructure.ontai.dev.
 SC-INV-003 -- seam-core CRD manifests are installed before all operators. No operator reaches Running state on a cluster that has not applied the seam-core CRD bundle first.
 
 ### Session protocol additions

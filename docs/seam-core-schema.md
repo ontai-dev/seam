@@ -13,12 +13,29 @@ definitions that no single operator owns. No reconciliation logic lives here.
 No capability engine lives here. Seam Core installs CRD definitions and runs
 a schema controller that validates CRD schema versions.
 
-**Seam Core owns:**
+**Seam Core owns (all under infrastructure.ontai.dev/v1alpha1):**
 - `InfrastructureLineageIndex` - the infrastructure domain instantiation of
   `DomainLineageIndex` from `core.ontai.dev`. Anchors the sealed causal chain
   for every root declaration managed by the Seam platform.
-- `RunnerConfig` - produced by Platform and Wrapper, reconciled by Conductor.
-  Transfer from conductor shared library is a governed migration (SC-INV-002).
+- `InfrastructureRunnerConfig` - produced by Platform and Wrapper, reconciled by Conductor.
+  Migrated from runner.ontai.dev/RunnerConfig (Phase 2B, 2026-04-25). Schema authority:
+  seam-core. Generation logic: conductor shared library (pkg/runnerlib), which imports
+  seam-core types.
+- `InfrastructurePackReceipt` - created by Conductor agent on target clusters. Migrated
+  from runner.ontai.dev/PackReceipt (Phase 2B, 2026-04-25).
+- `InfrastructureClusterPack` - human/GitOps-authored, reconciled by Wrapper. Migrated
+  from infra.ontai.dev/ClusterPack (Phase 2B, 2026-04-25).
+- `InfrastructurePackExecution` - reconciled by Wrapper. Migrated from
+  infra.ontai.dev/PackExecution (Phase 2B, 2026-04-25).
+- `InfrastructurePackInstance` - reconciled by Wrapper. Migrated from
+  infra.ontai.dev/PackInstance (Phase 2B, 2026-04-25).
+- `InfrastructurePackBuild` - local spec file; no cluster controller. Migrated from
+  infra.ontai.dev/PackBuild (Phase 2B, 2026-04-25).
+- `InfrastructureTalosCluster` - root declaration for every cluster, reconciled by Platform.
+  Migrated from platform.ontai.dev/TalosCluster (Phase 2B, 2026-04-25).
+- `DriftSignal` - written by Conductor (role=tenant for tenant cluster, role=management
+  for management cluster), acknowledged by Conductor role=management. Covers state enum,
+  correlationID, timestamp, affectedCRRef, driftReason, correctionJobRef, escalationCounter.
 - `InfrastructurePolicy` - produced by humans/guardian, reconciled by Guardian.
 - `InfrastructureProfile` - reconciled by Guardian.
 - The creation rationale enumeration (`pkg/lineage`) - a compile-time typed
@@ -31,8 +48,8 @@ a schema controller that validates CRD schema versions.
 - Operator-specific admission logic.
 - Runtime or compile-mode execution.
 
-**SC-INV-001** - seam-core owns CRD definitions. Reconcilers live in the operator.
-**SC-INV-002** - RunnerConfig CRD transfer is a governed migration.
+**SC-INV-001** - seam-core owns all cross-operator CRD definitions. Reconcilers live in the operator.
+**SC-INV-002** - Phase 2B migration complete (2026-04-25). All types migrated to infrastructure.ontai.dev. Old groups runner.ontai.dev and infra.ontai.dev are superseded.
 **SC-INV-003** - seam-core installs before all operators.
 
 ---
@@ -355,10 +372,8 @@ without explicit Governor scheduling:
 - **Admission webhook immutability gate** - the webhook handler that rejects
   updates modifying `spec.rootBinding` or `SealedCausalChain` fields.
   Requires a Guardian Controller Engineer session.
-- **RunnerConfig CRD ownership transfer** - from conductor shared library to
-  seam-core. SC-INV-002. Requires Governor-scheduled migration session.
-- **controller-gen wiring for seam-core** - currently no code generation.
-  The InfrastructureLineageIndex CRD YAML above is a hand-authored stub.
+- **controller-gen wiring for seam-core** - currently no code generation for
+  InfrastructureLineageIndex. The CRD YAML above is a hand-authored stub.
 
 ---
 
@@ -523,17 +538,17 @@ account. DSNS runs inside the seam-core controller manager process.
 
 DSNS watches all nine root-declaration GVKs already watched by LineageController:
 
-| GVK | Operator |
-|-----|----------|
-| TalosCluster | Platform |
-| SeamInfrastructureCluster | Platform |
-| SeamInfrastructureMachine | Platform |
-| ClusterPack | Wrapper |
-| PackExecution | Wrapper |
-| PackInstance | Wrapper |
-| RBACPolicy | Guardian |
-| RBACProfile | Guardian |
-| IdentityBinding | Guardian |
+| GVK | API group | Operator |
+|-----|-----------|----------|
+| InfrastructureTalosCluster | infrastructure.ontai.dev | Platform |
+| SeamInfrastructureCluster | infrastructure.cluster.x-k8s.io | Platform |
+| SeamInfrastructureMachine | infrastructure.cluster.x-k8s.io | Platform |
+| InfrastructureClusterPack | infrastructure.ontai.dev | Wrapper |
+| InfrastructurePackExecution | infrastructure.ontai.dev | Wrapper |
+| InfrastructurePackInstance | infrastructure.ontai.dev | Wrapper |
+| RBACPolicy | security.ontai.dev | Guardian |
+| RBACProfile | security.ontai.dev | Guardian |
+| IdentityBinding | security.ontai.dev | Guardian |
 
 DSNS derives all DNS records from these CRDs without calling into any operator's
 reconciler and without any operator importing a DSNS client package.
@@ -594,7 +609,7 @@ before DNS records can be populated.
 All records are under the `seam.ontave.dev` zone. DSNSReconciler derives records
 from the nine watched GVKs with no operator involvement.
 
-**Platform records** - emitted when a `TalosCluster` reaches `Ready`:
+**Platform records** - emitted when an `InfrastructureTalosCluster` reaches `Ready`:
 
 | Record type | Name pattern | Value |
 |-------------|--------------|-------|
@@ -622,7 +637,7 @@ from the nine watched GVKs with no operator involvement.
 | TLSA-style TXT | `authority.conductor.seam.ontave.dev` | Management Conductor signing key fingerprint |
 | TXT | `run.{runnerconfig-name}.conductor.{cluster-name}.seam.ontave.dev` | Validation result digest |
 
-**Sovereign cluster delegation** - emitted when TalosCluster role classification is `sovereign`:
+**Sovereign cluster delegation** - emitted when InfrastructureTalosCluster role classification is `sovereign`:
 
 | Record type | Name pattern | Value |
 |-------------|--------------|-------|

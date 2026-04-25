@@ -149,6 +149,16 @@ type InfrastructureTalosClusterSpec struct {
 	// +optional
 	TalosVersion string `json:"talosVersion,omitempty"`
 
+	// VersionUpgrade, when set to true, triggers a cluster-level rolling Talos upgrade
+	// to the version declared in spec.talosVersion. The platform reconciler creates an
+	// UpgradePolicy CR automatically and clears this field after the UpgradePolicy is
+	// created. Applicable only to cluster-wide Talos version upgrades — individual node
+	// operations, etcd maintenance, and other day-2 operations are not affected.
+	// For management clusters, the Conductor executor upgrades the leader node last and
+	// the platform operator releases its lease before the leader node reboots.
+	// +optional
+	VersionUpgrade bool `json:"versionUpgrade,omitempty"`
+
 	// ClusterEndpoint is the cluster VIP or primary API endpoint IP. Required on mode=import.
 	// Optional for bootstrap mode (endpoint derived from bootstrap Job output).
 	// +optional
@@ -193,6 +203,13 @@ type InfrastructureTalosClusterStatus struct {
 	// Origin records how this cluster came under Seam governance.
 	// +optional
 	Origin InfrastructureTalosClusterOrigin `json:"origin,omitempty"`
+
+	// ObservedTalosVersion is the Talos version last confirmed running by a successful
+	// day-2 upgrade operation (UpgradePolicy). The platform reconciler uses this to
+	// prevent spec.talosVersion from regressing the cluster below its current version.
+	// Set after each successful talos-upgrade or stack-upgrade UpgradePolicy.
+	// +optional
+	ObservedTalosVersion string `json:"observedTalosVersion,omitempty"`
 
 	// CAPIClusterRef is a reference to the owned CAPI Cluster object in the tenant
 	// namespace. Only set for CAPI-managed clusters (capi.enabled=true).

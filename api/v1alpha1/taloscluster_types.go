@@ -149,6 +149,13 @@ type InfrastructureTalosClusterSpec struct {
 	// +optional
 	TalosVersion string `json:"talosVersion,omitempty"`
 
+	// KubernetesVersion is the Kubernetes version for this cluster. Set from
+	// bootstrap.kubernetesVersion or derived automatically from the Talos version
+	// support matrix when not explicitly provided. Informational — upgrade CRs
+	// (UpgradePolicy with UpgradeTypeKubernetes) govern the actual k8s version.
+	// +optional
+	KubernetesVersion string `json:"kubernetesVersion,omitempty"`
+
 	// VersionUpgrade, when set to true, triggers a cluster-level rolling Talos upgrade
 	// to the version declared in spec.talosVersion. The platform reconciler creates an
 	// UpgradePolicy CR automatically and clears this field after the UpgradePolicy is

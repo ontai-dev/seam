@@ -159,6 +159,13 @@ spec:
                   KubeconfigSecretRef is the name of the Secret containing the kubeconfig for this cluster.
                   Required on mode=import. Not used when CAPI manages the cluster lifecycle.
                 type: string
+              kubernetesVersion:
+                description: |-
+                  KubernetesVersion is the Kubernetes version for this cluster. Set from
+                  bootstrap.kubernetesVersion or derived automatically from the Talos version
+                  support matrix when not explicitly provided. Informational — upgrade CRs
+                  (UpgradePolicy with UpgradeTypeKubernetes) govern the actual k8s version.
+                type: string
               lineage:
                 description: Lineage is the sealed causal chain record for this root
                   declaration. Immutable after creation.

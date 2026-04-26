@@ -7,7 +7,7 @@
 
 FROM golang:1.25 AS builder
 WORKDIR /build
-COPY seam-core/ .
+COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -trimpath \
     -ldflags="-s -w" \

@@ -103,6 +103,24 @@ type PackOperationFailureReason struct {
 // Conductor execute-mode Job before exit. Written by conductor; read by wrapper.
 // seam-core-schema.md §8, Decision 11.
 type PackOperationResultSpec struct {
+	// Revision is the monotonically increasing revision counter for this pack operation
+	// sequence. Incremented each time a new result supersedes the previous one. The
+	// single-active-revision pattern ensures exactly one PackOperationResult exists per
+	// ClusterPack operation sequence at any time.
+	Revision int64 `json:"revision"`
+
+	// PreviousRevisionRef is the name of the PackOperationResult CR that was deleted when
+	// this revision was written. Enables chain reconstruction for the full operation history.
+	// Absent for revision 1 (no predecessor).
+	// +optional
+	PreviousRevisionRef string `json:"previousRevisionRef,omitempty"`
+
+	// TalosClusterOperationResultRef is reserved for future cross-reference to a
+	// TalosCluster-scoped OperationResult. Stub field; not populated by any current
+	// controller.
+	// +optional
+	TalosClusterOperationResultRef string `json:"talosClusterOperationResultRef,omitempty"`
+
 	// PackExecutionRef is the name of the PackExecution CR that triggered this operation.
 	// +optional
 	PackExecutionRef string `json:"packExecutionRef,omitempty"`

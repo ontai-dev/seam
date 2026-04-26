@@ -982,3 +982,39 @@ const (
 	// signature verification passes.
 	ReasonSecurityViolationCleared = "SecurityViolationCleared"
 )
+
+// ─── Platform — Version upgrade and anti-regression conditions ──────────────
+// Operator: platform (TalosClusterReconciler, UpgradePolicyReconciler).
+
+const (
+	// ConditionTypeVersionUpgradePending is set on InfrastructureTalosCluster when
+	// spec.versionUpgrade=true is observed. Cleared after the generated UpgradePolicy
+	// reaches Ready=True and status.observedTalosVersion is updated.
+	// Terminal state: False (upgrade complete or not requested).
+	// Operators: platform (TalosClusterReconciler).
+	ConditionTypeVersionUpgradePending = "VersionUpgradePending"
+
+	// ReasonVersionUpgradeRequested is set on VersionUpgradePending=True when
+	// spec.versionUpgrade=true is first observed and validation passes.
+	ReasonVersionUpgradeRequested = "VersionUpgradeRequested"
+
+	// ReasonVersionUpgradeSubmitted is set on VersionUpgradePending=True after the
+	// UpgradePolicy CR has been created by the TalosCluster reconciler.
+	ReasonVersionUpgradeSubmitted = "VersionUpgradeSubmitted"
+
+	// ReasonVersionUpgradeComplete is set on VersionUpgradePending=False after the
+	// generated UpgradePolicy reaches Ready=True.
+	ReasonVersionUpgradeComplete = "VersionUpgradeComplete"
+
+	// ConditionTypeVersionRegressionBlocked is set on InfrastructureTalosCluster when
+	// spec.talosVersion would regress the cluster below status.observedTalosVersion.
+	// The reconciler does not downgrade and sets this condition until the spec is
+	// corrected to match or exceed the current observed version.
+	// Terminal state: False (spec corrected).
+	// Operators: platform (TalosClusterReconciler).
+	ConditionTypeVersionRegressionBlocked = "VersionRegressionBlocked"
+
+	// ReasonVersionRegressionAttempted is set on VersionRegressionBlocked=True when
+	// spec.talosVersion is lower than status.observedTalosVersion.
+	ReasonVersionRegressionAttempted = "VersionRegressionAttempted"
+)

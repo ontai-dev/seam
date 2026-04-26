@@ -111,13 +111,6 @@ spec:
                 description: HelmVersion is the version of the Helm SDK used to render
                   this pack.
                 type: string
-              valuesFile:
-                description: |-
-                  ValuesFile is the path to the values file used during pack compilation.
-                  For Helm packs: the user-supplied values file merged with chart defaults at render time.
-                  For kustomize/raw packs: the overlay or patch file applied during the external build.
-                  Informational -- recorded so admins can trace which customization produced this artifact.
-                type: string
               lifecyclePolicies:
                 description: LifecyclePolicies controls artifact retention behavior.
                 properties:
@@ -248,6 +241,13 @@ spec:
                 items:
                   type: string
                 type: array
+              valuesFile:
+                description: |-
+                  ValuesFile is the path to the values file used during pack compilation.
+                  For Helm packs: the user-supplied values file merged with chart defaults at render time.
+                  For kustomize/raw packs: the overlay or patch file applied during the external build.
+                  Informational -- recorded so admins can trace which customization produced this artifact.
+                type: string
               version:
                 description: Version is the semantic version of this pack. Immutable
                   after creation.

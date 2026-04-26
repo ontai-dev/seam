@@ -159,6 +159,13 @@ spec:
                   KubeconfigSecretRef is the name of the Secret containing the kubeconfig for this cluster.
                   Required on mode=import. Not used when CAPI manages the cluster lifecycle.
                 type: string
+              kubernetesVersion:
+                description: |-
+                  KubernetesVersion is the Kubernetes version for this cluster. Set from
+                  bootstrap.kubernetesVersion or derived automatically from the Talos version
+                  support matrix when not explicitly provided. Informational — upgrade CRs
+                  (UpgradePolicy with UpgradeTypeKubernetes) govern the actual k8s version.
+                type: string
               lineage:
                 description: Lineage is the sealed causal chain record for this root
                   declaration. Immutable after creation.
@@ -268,6 +275,16 @@ spec:
                 description: TalosconfigSecretRef is the name of the Secret containing
                   the talosconfig for this cluster.
                 type: string
+              versionUpgrade:
+                description: |-
+                  VersionUpgrade, when set to true, triggers a cluster-level rolling Talos upgrade
+                  to the version declared in spec.talosVersion. The platform reconciler creates an
+                  UpgradePolicy CR automatically and clears this field after the UpgradePolicy is
+                  created. Applicable only to cluster-wide Talos version upgrades — individual node
+                  operations, etcd maintenance, and other day-2 operations are not affected.
+                  For management clusters, the Conductor executor upgrades the leader node last and
+                  the platform operator releases its lease before the leader node reboots.
+                type: boolean
             required:
             - mode
             type: object
@@ -352,6 +369,13 @@ spec:
                 description: ObservedGeneration is the generation most recently reconciled.
                 format: int64
                 type: integer
+              observedTalosVersion:
+                description: |-
+                  ObservedTalosVersion is the Talos version last confirmed running by a successful
+                  day-2 upgrade operation (UpgradePolicy). The platform reconciler uses this to
+                  prevent spec.talosVersion from regressing the cluster below its current version.
+                  Set after each successful talos-upgrade or stack-upgrade UpgradePolicy.
+                type: string
               origin:
                 description: Origin records how this cluster came under Seam governance.
                 enum:

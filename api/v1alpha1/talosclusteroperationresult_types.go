@@ -24,17 +24,15 @@ type TalosClusterOperationFailureReason struct {
 	Reason string `json:"reason"`
 }
 
-// InfrastructureTalosClusterOperationResultSpec is the complete result
-// written by a Conductor execute-mode Job after a day-2 TalosCluster operation.
-// Immutable after creation. One CR per Job. conductor-schema.md §8.
-type InfrastructureTalosClusterOperationResultSpec struct {
-	// Capability is the conductor capability that produced this result.
+// TalosClusterOperationRecord is a single day-2 operation record within one
+// talosVersion revision. Multiple records accumulate in the parent TCOR as
+// operations are performed against the cluster.
+type TalosClusterOperationRecord struct {
+	// Capability is the conductor capability that produced this record.
 	Capability string `json:"capability"`
 
-	// ClusterRef is the name of the InfrastructureTalosCluster this operation targeted.
-	ClusterRef string `json:"clusterRef"`
-
-	// JobRef is the Kubernetes Job name that produced this result.
+	// JobRef is the Kubernetes Job name that produced this record.
+	// The platform reconciler uses this to correlate the record with the Job it submitted.
 	JobRef string `json:"jobRef"`
 
 	// Status is the terminal status of the capability execution.
@@ -58,6 +56,39 @@ type InfrastructureTalosClusterOperationResultSpec struct {
 	FailureReason *TalosClusterOperationFailureReason `json:"failureReason,omitempty"`
 }
 
+// InfrastructureTalosClusterOperationResultSpec is the accumulated day-2 operation
+// history for one cluster, scoped to the current talosVersion revision.
+//
+// One CR per cluster. Created by the platform operator when the cluster tenant
+// namespace is provisioned. Named by the cluster name. Lives in seam-tenant-{clusterRef}.
+//
+// When the cluster talosVersion is upgraded, the current revision is archived to
+// the GraphQuery DB and a new revision begins: Revision increments, TalosVersion
+// is updated, and Operations is cleared.
+//
+// conductor-schema.md §8, seam-core-schema.md §TCOR.
+type InfrastructureTalosClusterOperationResultSpec struct {
+	// ClusterRef is the name of the InfrastructureTalosCluster this result accumulates.
+	ClusterRef string `json:"clusterRef"`
+
+	// TalosVersion is the cluster talosVersion for the current active revision.
+	// Matches InfrastructureTalosCluster.spec.talosVersion at the time this revision began.
+	TalosVersion string `json:"talosVersion"`
+
+	// Revision is the monotonic revision counter. Starts at 1. Increments on each
+	// talosVersion upgrade. Each revision holds the operations performed during that
+	// version epoch. Archived revisions are stored in the GraphQuery DB.
+	// +kubebuilder:default=1
+	Revision int64 `json:"revision"`
+
+	// Operations is the map of day-2 operation records for the current revision,
+	// keyed by Kubernetes Job name (OPERATION_RESULT_CR). Map keying enables
+	// O(1) lookup by the platform reconciler and clean serialization when
+	// archiving the revision to the GraphQuery DB.
+	// +optional
+	Operations map[string]TalosClusterOperationRecord `json:"operations,omitempty"`
+}
+
 // InfrastructureTalosClusterOperationResultStatus is the observed state.
 // Currently empty; reserved for future conditions.
 type InfrastructureTalosClusterOperationResultStatus struct {
@@ -69,16 +100,20 @@ type InfrastructureTalosClusterOperationResultStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=tcor
-// +kubebuilder:printcolumn:name="Capability",type=string,JSONPath=`.spec.capability`
-// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.spec.status`
 // +kubebuilder:printcolumn:name="Cluster",type=string,JSONPath=`.spec.clusterRef`
+// +kubebuilder:printcolumn:name="TalosVersion",type=string,JSONPath=`.spec.talosVersion`
+// +kubebuilder:printcolumn:name="Revision",type=integer,JSONPath=`.spec.revision`
+// +kubebuilder:printcolumn:name="Ops",type=integer,JSONPath=`.spec.operations`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// InfrastructureTalosClusterOperationResult is the immutable result record
-// written by the Conductor execute-mode Job after a day-2 TalosCluster operation
-// completes. One CR per Job, created in the Job's namespace (ont-system).
-// Owned by the triggering platform day-2 CR via ownerReference for automatic GC.
-// conductor-schema.md §8, seam-core-schema.md §TBD.
+// InfrastructureTalosClusterOperationResult accumulates the day-2 operation history
+// for one cluster. One CR per cluster, created when the platform operator provisions
+// the cluster tenant namespace. Operations are appended by the Conductor execute-mode
+// Job. On talosVersion upgrade, the current revision is archived to the GraphQuery DB
+// and a new revision epoch begins.
+//
+// Named by the cluster name. Lives in seam-tenant-{clusterRef}.
+// conductor-schema.md §8, seam-core-schema.md §TCOR.
 type InfrastructureTalosClusterOperationResult struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

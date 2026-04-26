@@ -17,15 +17,18 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.capability
-      name: Capability
-      type: string
-    - jsonPath: .spec.status
-      name: Status
-      type: string
     - jsonPath: .spec.clusterRef
       name: Cluster
       type: string
+    - jsonPath: .spec.talosVersion
+      name: TalosVersion
+      type: string
+    - jsonPath: .spec.revision
+      name: Revision
+      type: integer
+    - jsonPath: .spec.operations
+      name: Ops
+      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -33,11 +36,14 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          InfrastructureTalosClusterOperationResult is the immutable result record
-          written by the Conductor execute-mode Job after a day-2 TalosCluster operation
-          completes. One CR per Job, created in the Job's namespace (ont-system).
-          Owned by the triggering platform day-2 CR via ownerReference for automatic GC.
-          conductor-schema.md §8, seam-core-schema.md §TBD.
+          InfrastructureTalosClusterOperationResult accumulates the day-2 operation history
+          for one cluster. One CR per cluster, created when the platform operator provisions
+          the cluster tenant namespace. Operations are appended by the Conductor execute-mode
+          Job. On talosVersion upgrade, the current revision is archived to the GraphQuery DB
+          and a new revision epoch begins.
+
+          Named by the cluster name. Lives in seam-tenant-{clusterRef}.
+          conductor-schema.md §8, seam-core-schema.md §TCOR.
         properties:
           apiVersion:
             description: |-
@@ -58,68 +64,112 @@ spec:
             type: object
           spec:
             description: |-
-              InfrastructureTalosClusterOperationResultSpec is the complete result
-              written by a Conductor execute-mode Job after a day-2 TalosCluster operation.
-              Immutable after creation. One CR per Job. conductor-schema.md §8.
+              InfrastructureTalosClusterOperationResultSpec is the accumulated day-2 operation
+              history for one cluster, scoped to the current talosVersion revision.
+
+              One CR per cluster. Created by the platform operator when the cluster tenant
+              namespace is provisioned. Named by the cluster name. Lives in seam-tenant-{clusterRef}.
+
+              When the cluster talosVersion is upgraded, the current revision is archived to
+              the GraphQuery DB and a new revision begins: Revision increments, TalosVersion
+              is updated, and Operations is cleared.
+
+              conductor-schema.md §8, seam-core-schema.md §TCOR.
             properties:
-              capability:
-                description: Capability is the conductor capability that produced
-                  this result.
-                type: string
               clusterRef:
                 description: ClusterRef is the name of the InfrastructureTalosCluster
-                  this operation targeted.
+                  this result accumulates.
                 type: string
-              completedAt:
-                description: CompletedAt is the time the capability execution finished.
-                format: date-time
-                type: string
-              failureReason:
-                description: FailureReason is populated when Status is Failed. Nil
-                  on success.
-                properties:
-                  category:
-                    description: Category classifies the failure domain.
-                    enum:
-                    - ValidationFailure
-                    - CapabilityUnavailable
-                    - ExecutionFailure
-                    - ExternalDependencyFailure
-                    - InvariantViolation
-                    type: string
-                  reason:
-                    description: Reason is a human-readable description of the failure.
-                    type: string
-                required:
-                - category
-                - reason
+              operations:
+                additionalProperties:
+                  description: |-
+                    TalosClusterOperationRecord is a single day-2 operation record within one
+                    talosVersion revision. Multiple records accumulate in the parent TCOR as
+                    operations are performed against the cluster.
+                  properties:
+                    capability:
+                      description: Capability is the conductor capability that produced
+                        this record.
+                      type: string
+                    completedAt:
+                      description: CompletedAt is the time the capability execution
+                        finished.
+                      format: date-time
+                      type: string
+                    failureReason:
+                      description: FailureReason is populated when Status is Failed.
+                        Nil on success.
+                      properties:
+                        category:
+                          description: Category classifies the failure domain.
+                          enum:
+                          - ValidationFailure
+                          - CapabilityUnavailable
+                          - ExecutionFailure
+                          - ExternalDependencyFailure
+                          - InvariantViolation
+                          type: string
+                        reason:
+                          description: Reason is a human-readable description of the
+                            failure.
+                          type: string
+                      required:
+                      - category
+                      - reason
+                      type: object
+                    jobRef:
+                      description: |-
+                        JobRef is the Kubernetes Job name that produced this record.
+                        The platform reconciler uses this to correlate the record with the Job it submitted.
+                      type: string
+                    message:
+                      description: Message provides a human-readable summary of the
+                        outcome.
+                      type: string
+                    startedAt:
+                      description: StartedAt is the time the capability execution
+                        began.
+                      format: date-time
+                      type: string
+                    status:
+                      allOf:
+                      - enum:
+                        - Succeeded
+                        - Failed
+                      - enum:
+                        - Succeeded
+                        - Failed
+                      description: Status is the terminal status of the capability
+                        execution.
+                      type: string
+                  required:
+                  - capability
+                  - jobRef
+                  - status
+                  type: object
+                description: |-
+                  Operations is the map of day-2 operation records for the current revision,
+                  keyed by Kubernetes Job name (OPERATION_RESULT_CR). Map keying enables
+                  O(1) lookup by the platform reconciler and clean serialization when
+                  archiving the revision to the GraphQuery DB.
                 type: object
-              jobRef:
-                description: JobRef is the Kubernetes Job name that produced this
-                  result.
-                type: string
-              message:
-                description: Message provides a human-readable summary of the outcome.
-                type: string
-              startedAt:
-                description: StartedAt is the time the capability execution began.
-                format: date-time
-                type: string
-              status:
-                allOf:
-                - enum:
-                  - Succeeded
-                  - Failed
-                - enum:
-                  - Succeeded
-                  - Failed
-                description: Status is the terminal status of the capability execution.
+              revision:
+                default: 1
+                description: |-
+                  Revision is the monotonic revision counter. Starts at 1. Increments on each
+                  talosVersion upgrade. Each revision holds the operations performed during that
+                  version epoch. Archived revisions are stored in the GraphQuery DB.
+                format: int64
+                type: integer
+              talosVersion:
+                description: |-
+                  TalosVersion is the cluster talosVersion for the current active revision.
+                  Matches InfrastructureTalosCluster.spec.talosVersion at the time this revision began.
                 type: string
             required:
-            - capability
             - clusterRef
-            - jobRef
-            - status
+            - revision
+            - talosVersion
             type: object
           status:
             description: |-

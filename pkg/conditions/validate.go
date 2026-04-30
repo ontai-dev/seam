@@ -155,8 +155,8 @@ var vocabulary = map[string]map[string]struct{}{
 		ReasonWorkerNodeUnreachable,
 	),
 	ConditionTypeConductorReady: reasons(
-		ReasonConductorDeploymentAvailable,
-		ReasonConductorDeploymentUnavailable,
+		ReasonConductorBootstrapComplete,
+		ReasonConductorBootstrapPending,
 	),
 
 	// ── Platform — ClusterMaintenance ────────────────────────────────────────

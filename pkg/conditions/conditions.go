@@ -581,19 +581,22 @@ const (
 )
 
 const (
-	// ConditionTypeConductorReady is set after the Conductor Deployment has been
-	// created on the target cluster. True when Available=True. The cluster does not
-	// transition to Ready until ConductorReady=True. platform-schema.md §12. Gap 27.
-	// Terminal state: True (deployment available).
+	// ConditionTypeConductorReady gates cluster readiness on the conductor bootstrap
+	// window being complete. True when ont-system namespace, conductor ServiceAccount,
+	// ClusterRole/Binding, and InfrastructureTalosCluster copy are all established on
+	// the tenant cluster. The cluster does not transition to Ready until ConductorReady=True.
+	// Platform never deploys the conductor Deployment -- that is admin-controlled via
+	// the enable bundle. platform-schema.md §12.
 	// Operators: platform (TalosCluster, writes); wrapper (PackExecutionReconciler, reads).
 	ConditionTypeConductorReady = "ConductorReady"
 
-	// ReasonConductorDeploymentAvailable is set on ConductorReady=True.
-	ReasonConductorDeploymentAvailable = "ConductorDeploymentAvailable"
+	// ReasonConductorBootstrapComplete is set on ConductorReady=True when the bootstrap
+	// window items (namespace, SA, RBAC, InfrastructureTalosCluster copy) are all done.
+	ReasonConductorBootstrapComplete = "ConductorBootstrapComplete"
 
-	// ReasonConductorDeploymentUnavailable is set on ConductorReady=False while
-	// the Deployment exists but has not yet reached Available=True.
-	ReasonConductorDeploymentUnavailable = "ConductorDeploymentUnavailable"
+	// ReasonConductorBootstrapPending is set on ConductorReady=False while the bootstrap
+	// window setup is still in progress (kubeconfig not yet available, or items pending).
+	ReasonConductorBootstrapPending = "ConductorBootstrapPending"
 )
 
 const (

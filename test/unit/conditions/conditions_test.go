@@ -82,8 +82,8 @@ func TestValidateCondition_AcceptsKnownPairs(t *testing.T) {
 		{conditions.ConditionTypeCiliumPending, conditions.ReasonCiliumPackReady},
 		{conditions.ConditionTypeControlPlaneUnreachable, conditions.ReasonControlPlaneNodeUnreachable},
 		{conditions.ConditionTypePartialWorkerAvailability, conditions.ReasonWorkerNodeUnreachable},
-		{conditions.ConditionTypeConductorReady, conditions.ReasonConductorDeploymentAvailable},
-		{conditions.ConditionTypeConductorReady, conditions.ReasonConductorDeploymentUnavailable},
+		{conditions.ConditionTypeConductorReady, conditions.ReasonConductorBootstrapComplete},
+		{conditions.ConditionTypeConductorReady, conditions.ReasonConductorBootstrapPending},
 
 		// Platform — ClusterMaintenance
 		{conditions.ConditionTypeClusterMaintenancePaused, conditions.ReasonCAPIPaused},
@@ -199,13 +199,13 @@ func TestValidateCondition_ErrorMessageContainsValidReasons(t *testing.T) {
 		t.Fatal("expected error for invalid reason, got nil")
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, conditions.ReasonConductorDeploymentAvailable) {
+	if !strings.Contains(msg, conditions.ReasonConductorBootstrapComplete) {
 		t.Errorf("error message should list valid reasons including %q; got: %v",
-			conditions.ReasonConductorDeploymentAvailable, msg)
+			conditions.ReasonConductorBootstrapComplete, msg)
 	}
-	if !strings.Contains(msg, conditions.ReasonConductorDeploymentUnavailable) {
+	if !strings.Contains(msg, conditions.ReasonConductorBootstrapPending) {
 		t.Errorf("error message should list valid reasons including %q; got: %v",
-			conditions.ReasonConductorDeploymentUnavailable, msg)
+			conditions.ReasonConductorBootstrapPending, msg)
 	}
 }
 

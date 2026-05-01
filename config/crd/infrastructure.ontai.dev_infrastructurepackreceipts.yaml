@@ -71,6 +71,34 @@ spec:
                 description: ClusterPackRef is the name of the ClusterPack CR this
                   receipt acknowledges.
                 type: string
+              deployedResources:
+                description: DeployedResources is the inventory of Kubernetes resources
+                  applied to the tenant cluster during pack-deploy. Used by conductor
+                  role=tenant for drift detection.
+                items:
+                  description: PackReceiptDeployedResource records a single resource
+                    applied during pack-deploy.
+                  properties:
+                    apiVersion:
+                      description: APIVersion is the full API version string (e.g.,
+                        "apps/v1").
+                      type: string
+                    kind:
+                      description: Kind is the resource kind.
+                      type: string
+                    name:
+                      description: Name is the resource name.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace the resource was applied
+                        to. Empty for cluster-scoped resources.
+                      type: string
+                  required:
+                  - apiVersion
+                  - kind
+                  - name
+                  type: object
+                type: array
               helmVersion:
                 description: HelmVersion is the Helm SDK version. Carried from ClusterPack.
                 type: string

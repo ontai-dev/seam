@@ -4,9 +4,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// PackReceiptDeployedResource records a single Kubernetes resource that was applied
+// to the tenant cluster as part of a pack-deploy Job. Used by conductor role=tenant
+// to detect drift between declared and actual cluster state.
+// CLUSTERPACK-BL-VERSION-CLEANUP. conductor-schema.md.
+type PackReceiptDeployedResource struct {
+	// APIVersion is the full API version string (e.g., "apps/v1").
+	APIVersion string `json:"apiVersion"`
+
+	// Kind is the resource kind (e.g., "Deployment").
+	Kind string `json:"kind"`
+
+	// Namespace is the namespace the resource was applied to. Empty for cluster-scoped resources.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// Name is the resource name.
+	Name string `json:"name"`
+}
+
 // InfrastructurePackReceiptSpec defines the desired state of an InfrastructurePackReceipt.
-// Written by conductor agent on the tenant cluster after verifying the signed PackInstance.
-// INV-026. conductor-schema.md.
+// Written by conductor-execute on the tenant cluster immediately after manifest apply.
+// Verified and reconciled by conductor agent role=tenant. INV-026. conductor-schema.md.
 type InfrastructurePackReceiptSpec struct {
 	// ClusterPackRef is the name of the ClusterPack CR this receipt acknowledges.
 	ClusterPackRef string `json:"clusterPackRef"`
@@ -46,6 +65,13 @@ type InfrastructurePackReceiptSpec struct {
 	// HelmVersion is the Helm SDK version. Carried from ClusterPack.
 	// +optional
 	HelmVersion string `json:"helmVersion,omitempty"`
+
+	// DeployedResources is the inventory of Kubernetes resources applied to the tenant cluster
+	// during the pack-deploy Job. Conductor role=tenant uses this list to detect drift by
+	// verifying each resource still exists with the expected state.
+	// CLUSTERPACK-BL-VERSION-CLEANUP, conductor-schema.md.
+	// +optional
+	DeployedResources []PackReceiptDeployedResource `json:"deployedResources,omitempty"`
 }
 
 // InfrastructurePackReceiptStatus is the observed state of an InfrastructurePackReceipt.

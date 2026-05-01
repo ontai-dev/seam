@@ -170,6 +170,39 @@ type PackOperationResultSpec struct {
 	// +optional
 	Steps []PackOperationStepResult `json:"steps,omitempty"`
 
+	// ClusterPackVersion is the ClusterPack spec.version deployed in this operation.
+	// Populated by the Conductor executor at write time. Serves as the durable
+	// rollback anchor: the wrapper reads this field to identify which OCI artifact
+	// version to restore when spec.rollbackToRevision is set. seam-core-schema.md §7.8.
+	// +optional
+	ClusterPackVersion string `json:"clusterPackVersion,omitempty"`
+
+	// RBACDigest is the OCI digest of the RBAC layer deployed in this operation.
+	// Copied from ClusterPack.spec.rbacDigest at deploy time. Rollback anchor.
+	// +optional
+	RBACDigest string `json:"rbacDigest,omitempty"`
+
+	// WorkloadDigest is the OCI digest of the workload layer deployed in this operation.
+	// Copied from ClusterPack.spec.workloadDigest at deploy time. Rollback anchor.
+	// +optional
+	WorkloadDigest string `json:"workloadDigest,omitempty"`
+
+	// PreviousClusterPackVersion is the ClusterPackVersion from the superseded POR revision.
+	// Copied by the POR writer from the predecessor before it is deleted.
+	// Empty on revision 1 (no predecessor). Supports one-step rollback. seam-core-schema.md §7.8.
+	// +optional
+	PreviousClusterPackVersion string `json:"previousClusterPackVersion,omitempty"`
+
+	// PreviousRBACDigest is the RBACDigest from the superseded POR revision.
+	// Copied from the predecessor before deletion. Empty on revision 1.
+	// +optional
+	PreviousRBACDigest string `json:"previousRBACDigest,omitempty"`
+
+	// PreviousWorkloadDigest is the WorkloadDigest from the superseded POR revision.
+	// Copied from the predecessor before deletion. Empty on revision 1.
+	// +optional
+	PreviousWorkloadDigest string `json:"previousWorkloadDigest,omitempty"`
+
 }
 
 // PackOperationResultStatus is the observed state of a PackOperationResult.

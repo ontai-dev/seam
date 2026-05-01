@@ -131,6 +131,16 @@ type InfrastructureClusterPackSpec struct {
 	// seam-core-schema.md §5, CLAUDE.md §14 Decision 1.
 	// +optional
 	Lineage *lineage.SealedCausalChain `json:"lineage,omitempty"`
+
+	// RollbackToRevision instructs the wrapper to restore this ClusterPack to the
+	// artifact version deployed at POR revision N-1. When set, the ClusterPackReconciler
+	// reads PreviousClusterPackVersion/PreviousRBACDigest/PreviousWorkloadDigest from
+	// the current POR, patches spec.version and spec.*Digest to those values, removes
+	// the spec-checksum-snapshot annotation, and clears this field. Only one-step
+	// rollback (to revision N-1) is supported per invocation. Set to 0 to disable.
+	// Governor-controlled only. wrapper-schema.md §6.2. seam-core-schema.md §7.8.
+	// +optional
+	RollbackToRevision int64 `json:"rollbackToRevision,omitempty"`
 }
 
 // InfrastructureClusterPackStatus is the observed state of an InfrastructureClusterPack.

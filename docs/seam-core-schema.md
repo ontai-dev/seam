@@ -619,16 +619,15 @@ created in `seam-tenant-{clusterName}` namespace.
 | revision                      | int64                          | no       | Monotonically increasing revision counter for this pack operation     |
 | previousRevisionRef           | string                         | no       | Name of the PackOperationResult deleted when this revision was written |
 | talosClusterOperationResultRef| string                         | no       | Reserved stub. Not populated by any current controller.               |
-| clusterPackVersion            | string                         | no       | ClusterPack spec.version deployed in this operation. Rollback anchor. |
+| clusterPackVersion            | string                         | no       | ClusterPack spec.version deployed in this operation. N-step rollback anchor. |
 | rbacDigest                    | string                         | no       | OCI digest of the RBAC layer deployed. Rollback restoration anchor.   |
 | workloadDigest                | string                         | no       | OCI digest of the workload layer deployed. Rollback restoration anchor.|
-| previousClusterPackVersion    | string                         | no       | clusterPackVersion from the superseded revision. One-step rollback.   |
-| previousRBACDigest            | string                         | no       | rbacDigest from the superseded revision. Copied before predecessor deletion. |
-| previousWorkloadDigest        | string                         | no       | workloadDigest from the superseded revision. Copied before predecessor deletion. |
 
-**Rollback invariants:** Previous-state fields (previousClusterPackVersion, previousRBACDigest, previousWorkloadDigest) are copied from the predecessor POR by the writer before the predecessor is deleted. Empty on revision 1. These fields plus ClusterPackSpec.rollbackToRevision are the complete rollback contract: no additional CRs or history retention required. One-step rollback only (N to N-1) per invocation.
+**Rollback invariants (N-step model):** The POR writer labels the predecessor `ontai.dev/superseded=true` instead of deleting it. Superseded PORs are retained up to `maxRetainedSupersededPORs` (10) per ClusterPack; the oldest is pruned when the cap is exceeded. The wrapper rollback handler lists all PORs for the ClusterPack (both active and superseded) via `ontai.dev/cluster-pack` label and reads `clusterPackVersion`, `rbacDigest`, `workloadDigest` directly from the POR at `spec.revision == rollbackToRevision`. Any retained revision is reachable in one `spec.rollbackToRevision` field set -- not limited to N-1.
 
-**Label:** `ontai.dev/cluster-pack={clusterPackRef}` is set on every POR to allow the wrapper rollback handler to find the current POR by ClusterPack name without knowing the PackExecution ref.
+**Labels on POR:**
+- `ontai.dev/cluster-pack={clusterPackRef}` -- set on every POR (active and superseded) to allow ClusterPack-scoped queries without knowing the PackExecution ref.
+- `ontai.dev/superseded=true` -- set by the POR writer when a revision is superseded. Active POR carries no superseded label.
 
 **PackOperationFailureReason fields:** category (enum: ValidationFailure, CapabilityUnavailable, ExecutionFailure, ExternalDependencyFailure, InvariantViolation, LicenseViolation, StorageUnavailable), reason (string), failedStep (string)
 

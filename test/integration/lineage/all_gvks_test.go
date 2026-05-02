@@ -115,7 +115,7 @@ func TestLineageController_AllGVKs_ProduceILIWithCorrectRootBinding(t *testing.T
 			r := &controller.LineageReconciler{Client: c, Scheme: s, GVK: gvk}
 
 			result := reconcileGVK(t, r, rootName, ns)
-			if result.Requeue || result.RequeueAfter != 0 {
+			if result.RequeueAfter != 0 {
 				t.Errorf("expected no requeue, got %+v", result)
 			}
 

@@ -1029,3 +1029,26 @@ const (
 	// spec.talosVersion is lower than status.observedTalosVersion.
 	ReasonVersionRegressionAttempted = "VersionRegressionAttempted"
 )
+
+const (
+	// ConditionTypeHardeningApplied is set on InfrastructureTalosCluster when
+	// spec.hardeningProfileRef is present. True when bootstrap hardening completes:
+	// on the ONT-native path, when the bootstrap NodeMaintenance (operation=hardening-apply,
+	// label ontai.dev/hardening-trigger=bootstrap) reaches Ready=True; on the CAPI path,
+	// when TalosConfigTemplate is created with merged HardeningProfile patches.
+	// Terminal state: True.
+	// Operators: platform (TalosClusterReconciler).
+	ConditionTypeHardeningApplied = "HardeningApplied"
+
+	// ReasonHardeningApplied is set on HardeningApplied=True when bootstrap hardening
+	// has completed (NodeMaintenance Ready or CAPI template created with patches).
+	ReasonHardeningApplied = "HardeningApplied"
+
+	// ReasonHardeningPending is set on HardeningApplied=False while the bootstrap
+	// NodeMaintenance has not yet reached Ready=True (ONT-native path).
+	ReasonHardeningPending = "HardeningPending"
+
+	// ReasonHardeningProfileNotValid is set on HardeningApplied=False when the
+	// referenced HardeningProfile does not have Valid=True. Requeued until valid.
+	ReasonHardeningProfileNotValid = "HardeningProfileNotValid"
+)

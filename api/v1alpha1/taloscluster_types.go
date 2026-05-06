@@ -208,6 +208,14 @@ type InfrastructureTalosClusterSpec struct {
 	// +kubebuilder:default=30
 	// +kubebuilder:validation:Minimum=1
 	PkiRotationThresholdDays int32 `json:"pkiRotationThresholdDays,omitempty"`
+
+	// HardeningProfileRef references a HardeningProfile CR to apply at bootstrap.
+	// ONT-native: platform creates a NodeMaintenance with operation=hardening-apply and
+	// label ontai.dev/hardening-trigger=bootstrap in seam-tenant-{cluster} after Ready.
+	// CAPI: MachineConfigPatches and SysctlParams are merged into TalosConfigTemplate at
+	// provisioning time. platform-schema.md §11.
+	// +optional
+	HardeningProfileRef *InfrastructureLocalObjectRef `json:"hardeningProfileRef,omitempty"`
 }
 
 // InfrastructureTalosClusterStatus is the observed state of an InfrastructureTalosCluster.

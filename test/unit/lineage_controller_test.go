@@ -365,13 +365,30 @@ func TestLineageReconciler_ControllerAuthoredAnnotation(t *testing.T) {
 }
 
 // TestLineageReconciler_AllRootDeclarationGVKsRegistered verifies the RootDeclarationGVKs
-// list contains all nine expected GVKs across the three Seam operator domains.
+// list contains all expected GVKs across all Seam operator domains.
 func TestLineageReconciler_AllRootDeclarationGVKsRegistered(t *testing.T) {
 	expected := map[string]bool{
+		// Platform infra
 		"infrastructure.ontai.dev/v1alpha1/InfrastructureTalosCluster":  false,
+		// Platform operational
+		"platform.ontai.dev/v1alpha1/UpgradePolicy":                     false,
+		"platform.ontai.dev/v1alpha1/NodeMaintenance":                   false,
+		"platform.ontai.dev/v1alpha1/ClusterMaintenance":                false,
+		"platform.ontai.dev/v1alpha1/PKIRotation":                       false,
+		"platform.ontai.dev/v1alpha1/ClusterReset":                      false,
+		"platform.ontai.dev/v1alpha1/NodeOperation":                     false,
+		"platform.ontai.dev/v1alpha1/EtcdMaintenance":                   false,
+		"platform.ontai.dev/v1alpha1/TalosMachineConfigBackup":          false,
+		"platform.ontai.dev/v1alpha1/TalosMachineConfigRestore":         false,
+		"platform.ontai.dev/v1alpha1/HardeningProfile":                  false,
+		// Platform CAPI provider
+		"infrastructure.ontai.dev/v1alpha1/SeamInfrastructureCluster":   false,
+		"infrastructure.ontai.dev/v1alpha1/SeamInfrastructureMachine":   false,
+		// Wrapper
 		"infrastructure.ontai.dev/v1alpha1/InfrastructureClusterPack":   false,
 		"infrastructure.ontai.dev/v1alpha1/InfrastructurePackExecution": false,
 		"infrastructure.ontai.dev/v1alpha1/InfrastructurePackInstance":  false,
+		// Guardian
 		"security.ontai.dev/v1alpha1/RBACPolicy":                        false,
 		"security.ontai.dev/v1alpha1/RBACProfile":                       false,
 		"security.ontai.dev/v1alpha1/IdentityBinding":                   false,
@@ -394,8 +411,8 @@ func TestLineageReconciler_AllRootDeclarationGVKsRegistered(t *testing.T) {
 		}
 	}
 
-	if len(controller.RootDeclarationGVKs) != 9 {
-		t.Errorf("expected 9 GVKs, got %d", len(controller.RootDeclarationGVKs))
+	if len(controller.RootDeclarationGVKs) != 21 {
+		t.Errorf("expected 21 GVKs, got %d", len(controller.RootDeclarationGVKs))
 	}
 }
 

@@ -232,10 +232,12 @@ func TestLineageController_AllGVKs_ILINameFormat(t *testing.T) {
 	}
 }
 
-// TestLineageController_GVKCount verifies exactly 9 GVKs are registered.
+// TestLineageController_GVKCount verifies the number of GVKs registered.
 // Guards against silent additions or removals. seam-core-schema.md §7.
 func TestLineageController_GVKCount(t *testing.T) {
-	const expected = 9
+	// 1 platform infra + 10 platform operational + 2 platform CAPI +
+	// 3 wrapper + 5 guardian = 21
+	const expected = 21
 	if got := len(controller.RootDeclarationGVKs); got != expected {
 		t.Errorf("RootDeclarationGVKs count = %d, want %d", got, expected)
 	}

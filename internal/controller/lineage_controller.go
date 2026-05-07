@@ -65,6 +65,22 @@ var RootDeclarationGVKs = []schema.GroupVersionKind{
 	// Platform operator — infrastructure.ontai.dev (Decision G)
 	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"},
 
+	// Platform operator — platform.ontai.dev (operational root declarations)
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "UpgradePolicy"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "NodeMaintenance"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "ClusterMaintenance"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "PKIRotation"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "ClusterReset"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "NodeOperation"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "EtcdMaintenance"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigBackup"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigRestore"},
+	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "HardeningProfile"},
+
+	// Platform CAPI provider — infrastructure.ontai.dev
+	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureCluster"},
+	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureMachine"},
+
 	// Wrapper operator — infrastructure.ontai.dev (Decision G)
 	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureClusterPack"},
 	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackExecution"},

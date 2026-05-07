@@ -162,14 +162,28 @@ func TestAC4_LineageReconciler_Idempotent(t *testing.T) {
 	}
 }
 
-// TestAC4_AllNineRootDeclarationGVKsAreRegistered verifies that all nine root
-// declaration GVKs named in the architecture are registered in RootDeclarationGVKs.
+// TestAC4_AllRootDeclarationGVKsAreRegistered verifies that all root declaration GVKs
+// named in the architecture are registered in RootDeclarationGVKs.
 // A missing registration means the LineageController is blind to that CRD family.
 // AC-4 gate: GVK coverage contract. seam-core-schema.md §3.
 func TestAC4_AllNineRootDeclarationGVKsAreRegistered(t *testing.T) {
 	required := []schema.GroupVersionKind{
 		// Platform — infrastructure.ontai.dev (Decision G)
 		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"},
+		// Platform operational — platform.ontai.dev
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "UpgradePolicy"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "NodeMaintenance"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "ClusterMaintenance"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "PKIRotation"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "ClusterReset"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "NodeOperation"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "EtcdMaintenance"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigBackup"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigRestore"},
+		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "HardeningProfile"},
+		// Platform CAPI provider — infrastructure.ontai.dev
+		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureCluster"},
+		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureMachine"},
 		// Wrapper — infrastructure.ontai.dev (Decision G)
 		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureClusterPack"},
 		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackExecution"},

@@ -152,18 +152,22 @@ type InfrastructureTalosClusterSpec struct {
 
 	// KubernetesVersion is the Kubernetes version for this cluster. Set from
 	// bootstrap.kubernetesVersion or derived automatically from the Talos version
-	// support matrix when not explicitly provided. Informational — upgrade CRs
-	// (UpgradePolicy with UpgradeTypeKubernetes) govern the actual k8s version.
+	// support matrix when not explicitly provided. When spec.versionUpgrade=true,
+	// setting this field drives an UpgradeTypeKubernetes UpgradePolicy. Setting
+	// both talosVersion and kubernetesVersion drives an UpgradeTypeStack policy
+	// (sequential Talos then Kubernetes upgrade via a single Conductor Job).
 	// +optional
 	KubernetesVersion string `json:"kubernetesVersion,omitempty"`
 
-	// VersionUpgrade, when set to true, triggers a cluster-level rolling Talos upgrade
-	// to the version declared in spec.talosVersion. The platform reconciler creates an
-	// UpgradePolicy CR automatically and clears this field after the UpgradePolicy is
-	// created. Applicable only to cluster-wide Talos version upgrades — individual node
-	// operations, etcd maintenance, and other day-2 operations are not affected.
-	// For management clusters, the Conductor executor upgrades the leader node last and
-	// the platform operator releases its lease before the leader node reboots.
+	// VersionUpgrade, when set to true, triggers a cluster-level rolling upgrade.
+	// The upgrade type is derived from which version fields are set:
+	//   - talosVersion only: UpgradeTypeTalos (Talos OS upgrade)
+	//   - kubernetesVersion only: UpgradeTypeKubernetes (k8s upgrade, Talos unchanged)
+	//   - both: UpgradeTypeStack (sequential Talos then k8s upgrade)
+	// The platform reconciler creates an UpgradePolicy CR automatically. Individual
+	// node operations, etcd maintenance, and other day-2 operations are not affected.
+	// For management clusters, the Conductor executor upgrades the leader node last
+	// and the platform operator releases its lease before the leader node reboots.
 	// +optional
 	VersionUpgrade bool `json:"versionUpgrade,omitempty"`
 

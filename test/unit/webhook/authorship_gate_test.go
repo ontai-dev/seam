@@ -45,7 +45,7 @@ func TestEvaluateAuthorshipGate_NonInterceptedKind_Update_Allowed(t *testing.T) 
 // The authorship gate covers CREATE and UPDATE only.
 func TestEvaluateAuthorshipGate_ILI_Delete_Allowed(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationDelete,
 		RequestingUser: "system:admin",
 	})
@@ -57,7 +57,7 @@ func TestEvaluateAuthorshipGate_ILI_Delete_Allowed(t *testing.T) {
 // Test A4 — ILI DELETE: allowed even for completely unauthorized user.
 func TestEvaluateAuthorshipGate_ILI_Delete_UnauthorizedUser_Allowed(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationDelete,
 		RequestingUser: "unknown-human",
 	})
@@ -71,7 +71,7 @@ func TestEvaluateAuthorshipGate_ILI_Delete_UnauthorizedUser_Allowed(t *testing.T
 // Test A5 — ILI CREATE from LineageController SA: allowed. CLAUDE.md §14 Decision 3.
 func TestEvaluateAuthorshipGate_ILI_Create_LineageControllerSA_Allowed(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: webhook.LineageControllerIdentity,
 	})
@@ -83,7 +83,7 @@ func TestEvaluateAuthorshipGate_ILI_Create_LineageControllerSA_Allowed(t *testin
 // Test A6 — ILI UPDATE from LineageController SA: allowed.
 func TestEvaluateAuthorshipGate_ILI_Update_LineageControllerSA_Allowed(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationUpdate,
 		RequestingUser: webhook.LineageControllerIdentity,
 	})
@@ -97,7 +97,7 @@ func TestEvaluateAuthorshipGate_ILI_Update_LineageControllerSA_Allowed(t *testin
 // Test A7 — ILI CREATE from human user: denied. CLAUDE.md §14 Decision 3.
 func TestEvaluateAuthorshipGate_ILI_Create_HumanUser_Denied(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: "alice",
 	})
@@ -112,7 +112,7 @@ func TestEvaluateAuthorshipGate_ILI_Create_HumanUser_Denied(t *testing.T) {
 // Test A8 — ILI UPDATE from human user: denied.
 func TestEvaluateAuthorshipGate_ILI_Update_HumanUser_Denied(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationUpdate,
 		RequestingUser: "bob",
 	})
@@ -122,10 +122,10 @@ func TestEvaluateAuthorshipGate_ILI_Update_HumanUser_Denied(t *testing.T) {
 }
 
 // Test A9 — ILI CREATE from system:admin: denied.
-// Even cluster-admin is not permitted to write InfrastructureLineageIndex.
+// Even cluster-admin is not permitted to write LineageRecord.
 func TestEvaluateAuthorshipGate_ILI_Create_ClusterAdmin_Denied(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: "system:admin",
 	})
@@ -138,7 +138,7 @@ func TestEvaluateAuthorshipGate_ILI_Create_ClusterAdmin_Denied(t *testing.T) {
 // Only the specific lineage-controller SA is authorized — not any SA.
 func TestEvaluateAuthorshipGate_ILI_Create_OtherSA_Denied(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: "system:serviceaccount:seam-system:some-other-controller",
 	})
@@ -150,7 +150,7 @@ func TestEvaluateAuthorshipGate_ILI_Create_OtherSA_Denied(t *testing.T) {
 // Test A11 — ILI CREATE from empty user (unauthenticated): denied.
 func TestEvaluateAuthorshipGate_ILI_Create_EmptyUser_Denied(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: "",
 	})
@@ -164,7 +164,7 @@ func TestEvaluateAuthorshipGate_ILI_Create_EmptyUser_Denied(t *testing.T) {
 // Test A12 — Denial reason references CLAUDE.md §14 Decision 3.
 func TestEvaluateAuthorshipGate_DeniedReason_ReferencesDecision3(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: "unauthorized-user",
 	})
@@ -182,7 +182,7 @@ func TestEvaluateAuthorshipGate_DeniedReason_ReferencesDecision3(t *testing.T) {
 // Test A13 — Denial reason includes LineageControllerIdentity for observability.
 func TestEvaluateAuthorshipGate_DeniedReason_IncludesAuthorizedIdentity(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: "bad-actor",
 	})
@@ -198,7 +198,7 @@ func TestEvaluateAuthorshipGate_DeniedReason_IncludesAuthorizedIdentity(t *testi
 func TestEvaluateAuthorshipGate_DeniedReason_IncludesRequestingUser(t *testing.T) {
 	requester := "system:serviceaccount:default:some-controller"
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: requester,
 	})
@@ -213,7 +213,7 @@ func TestEvaluateAuthorshipGate_DeniedReason_IncludesRequestingUser(t *testing.T
 // Test A15 — Reason is empty when allowed.
 func TestEvaluateAuthorshipGate_AllowedReason_IsEmpty(t *testing.T) {
 	decision := webhook.EvaluateAuthorshipGate(webhook.AuthorshipGateRequest{
-		Kind:           webhook.InfrastructureLineageIndexKind,
+		Kind:           webhook.LineageRecordKind,
 		Operation:      webhook.OperationCreate,
 		RequestingUser: webhook.LineageControllerIdentity,
 	})

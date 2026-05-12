@@ -1,7 +1,7 @@
 // authorship_gate.go contains only pure functions and value types for the
-// controller-authorship admission gate on InfrastructureLineageIndex.
+// controller-authorship admission gate on LineageRecord.
 //
-// AUTHORSHIP CONTRACT: InfrastructureLineageIndex instances are controller-authored
+// AUTHORSHIP CONTRACT: LineageRecord instances are controller-authored
 // exclusively. No human operator, no automation pipeline, and no other controller
 // may create or update them. The admission webhook rejects any CREATE or UPDATE
 // whose requesting principal is not the LineageController ServiceAccount.
@@ -46,18 +46,18 @@ type AuthorshipGateDecision struct {
 }
 
 // EvaluateAuthorshipGate applies the controller-authorship policy to an incoming
-// admission request for InfrastructureLineageIndex. It is a pure function: no
+// admission request for LineageRecord. It is a pure function: no
 // side effects, no Kubernetes API calls, no I/O.
 //
 // Evaluation order:
-//  1. If Kind is not InfrastructureLineageIndex, allow unconditionally.
+//  1. If Kind is not LineageRecord, allow unconditionally.
 //  2. If the operation is DELETE, allow unconditionally.
 //     The authorship gate covers CREATE and UPDATE only.
 //  3. If RequestingUser matches LineageControllerIdentity, allow.
 //  4. Otherwise, reject — the request is not from the authorized LineageController
 //     ServiceAccount. CLAUDE.md §14 Decision 3.
 func EvaluateAuthorshipGate(req AuthorshipGateRequest) AuthorshipGateDecision {
-	if req.Kind != InfrastructureLineageIndexKind {
+	if req.Kind != LineageRecordKind {
 		return AuthorshipGateDecision{Allowed: true}
 	}
 
@@ -72,10 +72,10 @@ func EvaluateAuthorshipGate(req AuthorshipGateRequest) AuthorshipGateDecision {
 	return AuthorshipGateDecision{
 		Allowed: false,
 		Reason: fmt.Sprintf(
-			"InfrastructureLineageIndex instances are controller-authored exclusively; "+
+			"LineageRecord instances are controller-authored exclusively; "+
 				"only the InfrastructureLineageController ServiceAccount (%q) may create or "+
 				"update them — no human operator, automation pipeline, or other controller "+
-				"is authorized to write InfrastructureLineageIndex resources "+
+				"is authorized to write LineageRecord resources "+
 				"(CLAUDE.md §14 Decision 3, seam-core-schema.md §7 Declaration 4); "+
 				"requesting user %q is not authorized",
 			LineageControllerIdentity, req.RequestingUser,

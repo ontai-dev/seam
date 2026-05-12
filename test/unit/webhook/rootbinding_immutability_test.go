@@ -44,11 +44,11 @@ func TestEvaluateRootBindingImmutability_Deployment_Update_DifferentBinding_Allo
 
 // --- CREATE is always allowed ---
 
-// Test R3 — InfrastructureLineageIndex CREATE: always allowed.
+// Test R3 — LineageRecord CREATE: always allowed.
 // rootBinding is authored at creation time — CREATE is the authoritative event.
 func TestEvaluateRootBindingImmutability_ILI_Create_Allowed(t *testing.T) {
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationCreate,
 		OldRootBindingRaw: nil,
 		NewRootBindingRaw: []byte(`{"rootKind":"TalosCluster","rootName":"cluster-1","rootNamespace":"ont-system","rootUID":"abc","rootObservedGeneration":1}`),
@@ -60,10 +60,10 @@ func TestEvaluateRootBindingImmutability_ILI_Create_Allowed(t *testing.T) {
 
 // --- DELETE is always allowed ---
 
-// Test R4 — InfrastructureLineageIndex DELETE: always allowed.
+// Test R4 — LineageRecord DELETE: always allowed.
 func TestEvaluateRootBindingImmutability_ILI_Delete_Allowed(t *testing.T) {
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationDelete,
 		OldRootBindingRaw: []byte(`{"rootKind":"TalosCluster"}`),
 		NewRootBindingRaw: nil,
@@ -78,7 +78,7 @@ func TestEvaluateRootBindingImmutability_ILI_Delete_Allowed(t *testing.T) {
 // Test R5 — ILI UPDATE: both rootBinding nil → allowed.
 func TestEvaluateRootBindingImmutability_ILI_Update_BothNil_Allowed(t *testing.T) {
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: nil,
 		NewRootBindingRaw: nil,
@@ -92,7 +92,7 @@ func TestEvaluateRootBindingImmutability_ILI_Update_BothNil_Allowed(t *testing.T
 func TestEvaluateRootBindingImmutability_ILI_Update_IdenticalBinding_Allowed(t *testing.T) {
 	binding := []byte(`{"rootKind":"TalosCluster","rootName":"cluster-1","rootNamespace":"ont-system","rootUID":"abc-123","rootObservedGeneration":1}`)
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: binding,
 		NewRootBindingRaw: binding,
@@ -107,7 +107,7 @@ func TestEvaluateRootBindingImmutability_ILI_Update_WhitespaceDifference_Allowed
 	old := []byte(`{"rootKind":"TalosCluster","rootName":"cluster-1"}`)
 	newVal := []byte(`{ "rootKind": "TalosCluster", "rootName": "cluster-1" }`)
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: old,
 		NewRootBindingRaw: newVal,
@@ -122,7 +122,7 @@ func TestEvaluateRootBindingImmutability_ILI_Update_WhitespaceDifference_Allowed
 // Test R8 — ILI UPDATE: rootBinding nil → present → denied.
 func TestEvaluateRootBindingImmutability_ILI_Update_NilToPresent_Denied(t *testing.T) {
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: nil,
 		NewRootBindingRaw: []byte(`{"rootKind":"TalosCluster"}`),
@@ -138,7 +138,7 @@ func TestEvaluateRootBindingImmutability_ILI_Update_NilToPresent_Denied(t *testi
 // Test R9 — ILI UPDATE: rootBinding present → nil → denied.
 func TestEvaluateRootBindingImmutability_ILI_Update_PresentToNil_Denied(t *testing.T) {
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: []byte(`{"rootKind":"TalosCluster"}`),
 		NewRootBindingRaw: nil,
@@ -153,7 +153,7 @@ func TestEvaluateRootBindingImmutability_ILI_Update_RootKindChanged_Denied(t *te
 	old := []byte(`{"rootKind":"TalosCluster","rootName":"cluster-1"}`)
 	newVal := []byte(`{"rootKind":"PackExecution","rootName":"cluster-1"}`)
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: old,
 		NewRootBindingRaw: newVal,
@@ -169,7 +169,7 @@ func TestEvaluateRootBindingImmutability_ILI_Update_RootUIDChanged_Denied(t *tes
 	old := []byte(`{"rootKind":"TalosCluster","rootName":"cluster-1","rootUID":"original-uid"}`)
 	newVal := []byte(`{"rootKind":"TalosCluster","rootName":"cluster-1","rootUID":"replacement-uid"}`)
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: old,
 		NewRootBindingRaw: newVal,
@@ -182,7 +182,7 @@ func TestEvaluateRootBindingImmutability_ILI_Update_RootUIDChanged_Denied(t *tes
 // Test R12 — JSON "null" value treated as absent (equal to nil) → allowed.
 func TestEvaluateRootBindingImmutability_Update_NullAndNil_TreatedEqual_Allowed(t *testing.T) {
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: []byte("null"),
 		NewRootBindingRaw: nil,
@@ -197,7 +197,7 @@ func TestEvaluateRootBindingImmutability_Update_NullAndNil_TreatedEqual_Allowed(
 // Test R13 — Denial reason references seam-core-schema.md §3.1.
 func TestEvaluateRootBindingImmutability_DeniedReason_ReferencesSchema(t *testing.T) {
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: nil,
 		NewRootBindingRaw: []byte(`{"rootKind":"X"}`),
@@ -213,7 +213,7 @@ func TestEvaluateRootBindingImmutability_DeniedReason_ReferencesSchema(t *testin
 // Test R14 — Reason is empty when allowed.
 func TestEvaluateRootBindingImmutability_AllowedReason_IsEmpty(t *testing.T) {
 	decision := webhook.EvaluateRootBindingImmutability(webhook.RootBindingImmutabilityRequest{
-		Kind:              webhook.InfrastructureLineageIndexKind,
+		Kind:              webhook.LineageRecordKind,
 		Operation:         webhook.OperationUpdate,
 		OldRootBindingRaw: nil,
 		NewRootBindingRaw: nil,

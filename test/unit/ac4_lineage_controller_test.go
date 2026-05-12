@@ -35,8 +35,8 @@ func buildAC4ReconcilerWithClient(t *testing.T, gvk schema.GroupVersionKind, roo
 	s := newTestScheme(t)
 	c := fake.NewClientBuilder().
 		WithScheme(s).
-		WithObjects(root).
-		WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+		WithObjects(root, newCRDObject(gvk, true)).
+		WithStatusSubresource(root, &seamv1alpha1.LineageRecord{}).
 		Build()
 	return &controller.LineageReconciler{
 		Client: c,
@@ -55,7 +55,7 @@ func TestAC4_LineageReconciler_CreatesILIWithDeterministicName(t *testing.T) {
 
 	reconcileRoot(t, r, "prod-cluster", "seam-system")
 
-	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	ili := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name:      "taloscluster-prod-cluster",
 		Namespace: "seam-system",
@@ -153,7 +153,7 @@ func TestAC4_LineageReconciler_Idempotent(t *testing.T) {
 	reconcileRoot(t, r, "exec-001", "infra-system")
 	reconcileRoot(t, r, "exec-001", "infra-system")
 
-	iliList := &seamv1alpha1.InfrastructureLineageIndexList{}
+	iliList := &seamv1alpha1.LineageRecordList{}
 	if err := c.List(context.Background(), iliList, client.InNamespace("infra-system")); err != nil {
 		t.Fatalf("AC-4: list ILIs: %v", err)
 	}
@@ -168,9 +168,9 @@ func TestAC4_LineageReconciler_Idempotent(t *testing.T) {
 // AC-4 gate: GVK coverage contract. seam-core-schema.md §3.
 func TestAC4_AllNineRootDeclarationGVKsAreRegistered(t *testing.T) {
 	required := []schema.GroupVersionKind{
-		// Platform — seam.ontai.dev (MIGRATION-3.1)
+		// Platform -- seam.ontai.dev (MIGRATION-3.1)
 		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"},
-		// Platform operational — platform.ontai.dev
+		// Platform operational -- platform.ontai.dev
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "UpgradePolicy"},
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "NodeMaintenance"},
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "ClusterMaintenance"},
@@ -181,19 +181,19 @@ func TestAC4_AllNineRootDeclarationGVKsAreRegistered(t *testing.T) {
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigBackup"},
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigRestore"},
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "HardeningProfile"},
-		// Platform CAPI provider — infrastructure.ontai.dev
+		// Platform CAPI provider -- infrastructure.ontai.dev
 		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureCluster"},
 		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureMachine"},
-		// Wrapper — infrastructure.ontai.dev (Decision G)
-		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureClusterPack"},
-		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackExecution"},
-		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"},
-		// Guardian
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "RBACPolicy"},
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "RBACProfile"},
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "PermissionSet"},
+		// Dispatcher -- seam.ontai.dev (MIGRATION-3.3-3.7)
+		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackDelivery"},
+		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackExecution"},
+		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackInstalled"},
+		// Guardian -- guardian.ontai.dev (constitutional refactor 2026-05-12)
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "RBACPolicy"},
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "RBACProfile"},
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "PermissionSet"},
 	}
 
 	if len(controller.RootDeclarationGVKs) != len(required) {

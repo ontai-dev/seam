@@ -55,7 +55,8 @@ func TestPrincipalPropagation_ILICreatedWithDeclaringPrincipal(t *testing.T) {
 		lineage.AnnotationDeclaringPrincipal: "alice@example.com",
 	})
 	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).
-		WithStatusSubresource(tc, &seamv1alpha1.InfrastructureLineageIndex{}).Build()
+		WithObjects(newCRDObject(talosClusterGVK, true)).
+		WithStatusSubresource(tc, &seamv1alpha1.LineageRecord{}).Build()
 	r := newLineageReconcilerForPrincipal(t, c)
 	if err := c.Create(context.Background(), tc); err != nil {
 		t.Fatalf("create TalosCluster: %v", err)
@@ -68,7 +69,7 @@ func TestPrincipalPropagation_ILICreatedWithDeclaringPrincipal(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	ili := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name:      "taloscluster-prod",
 		Namespace: "seam-system",
@@ -87,7 +88,8 @@ func TestPrincipalPropagation_ILICreatedWithDeclaringPrincipal(t *testing.T) {
 func TestPrincipalPropagation_AnnotationAbsentSetsSystemUnknown(t *testing.T) {
 	tc := newTalosCluster("dev", "seam-system", nil)
 	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).
-		WithStatusSubresource(tc, &seamv1alpha1.InfrastructureLineageIndex{}).Build()
+		WithObjects(newCRDObject(talosClusterGVK, true)).
+		WithStatusSubresource(tc, &seamv1alpha1.LineageRecord{}).Build()
 	r := newLineageReconcilerForPrincipal(t, c)
 	if err := c.Create(context.Background(), tc); err != nil {
 		t.Fatalf("create TalosCluster: %v", err)
@@ -99,7 +101,7 @@ func TestPrincipalPropagation_AnnotationAbsentSetsSystemUnknown(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	ili := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name: "taloscluster-dev", Namespace: "seam-system",
 	}, ili); err != nil {
@@ -118,13 +120,13 @@ func TestPrincipalPropagation_DescendantActorRefMatchesILI(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).Build()
 
 	// Pre-create an ILI with a known declaringPrincipal.
-	ili := &seamv1alpha1.InfrastructureLineageIndex{
+	ili := &seamv1alpha1.LineageRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "taloscluster-prod",
 			Namespace: "seam-system",
 		},
-		Spec: seamv1alpha1.InfrastructureLineageIndexSpec{
-			RootBinding: seamv1alpha1.InfrastructureLineageIndexRootBinding{
+		Spec: seamv1alpha1.LineageRecordSpec{
+			RootBinding: seamv1alpha1.LineageRecordRootBinding{
 				RootKind:           "TalosCluster",
 				RootName:           "prod",
 				RootNamespace:      "seam-system",
@@ -154,7 +156,7 @@ func TestPrincipalPropagation_DescendantActorRefMatchesILI(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	updated := &seamv1alpha1.InfrastructureLineageIndex{}
+	updated := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name: "taloscluster-prod", Namespace: "seam-system",
 	}, updated); err != nil {
@@ -175,13 +177,13 @@ func TestPrincipalPropagation_DescendantActorRefMatchesILI(t *testing.T) {
 func TestPrincipalPropagation_DescendantCreatedAtIsSet(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).Build()
 
-	ili := &seamv1alpha1.InfrastructureLineageIndex{
+	ili := &seamv1alpha1.LineageRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "taloscluster-prod",
 			Namespace: "seam-system",
 		},
-		Spec: seamv1alpha1.InfrastructureLineageIndexSpec{
-			RootBinding: seamv1alpha1.InfrastructureLineageIndexRootBinding{
+		Spec: seamv1alpha1.LineageRecordSpec{
+			RootBinding: seamv1alpha1.LineageRecordRootBinding{
 				RootKind:      "TalosCluster",
 				RootName:      "prod",
 				RootNamespace: "seam-system",
@@ -209,7 +211,7 @@ func TestPrincipalPropagation_DescendantCreatedAtIsSet(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	updated := &seamv1alpha1.InfrastructureLineageIndex{}
+	updated := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name: "taloscluster-prod", Namespace: "seam-system",
 	}, updated); err != nil {

@@ -1,7 +1,7 @@
 // domainref_validation.go contains pure functions and value types for the
-// spec.domainRef validation gate on InfrastructureLineageIndex.
+// spec.domainRef validation gate on LineageRecord.
 //
-// DOMAINREF CONTRACT: When spec.domainRef is set on a new InfrastructureLineageIndex,
+// DOMAINREF CONTRACT: When spec.domainRef is set on a new LineageRecord,
 // it must equal the canonical infrastructure domain reference ("infrastructure.core.ontai.dev").
 // Unknown values are rejected immediately. Empty is permitted — the LineageController
 // will set the correct value during reconciliation.
@@ -16,7 +16,7 @@ import "fmt"
 const DomainRefWebhookPath = "/validate-lineage-index-domainref"
 
 // ValidInfrastructureDomainRef is the only accepted non-empty value for
-// spec.domainRef on InfrastructureLineageIndex instances. It is the
+// spec.domainRef on LineageRecord instances. It is the
 // {name}.{group} reference to the DomainLineageIndex at core.ontai.dev
 // that this infrastructure ILI instantiates. CLAUDE.md §14 Decision 2.
 const ValidInfrastructureDomainRef = "infrastructure.core.ontai.dev"
@@ -41,18 +41,18 @@ type DomainRefValidationDecision struct {
 }
 
 // EvaluateDomainRefValidation validates spec.domainRef on CREATE requests for
-// InfrastructureLineageIndex. It is a pure function: no side effects, no
+// LineageRecord. It is a pure function: no side effects, no
 // Kubernetes API calls, no I/O.
 //
 // Evaluation order:
-//  1. If Kind is not InfrastructureLineageIndex, allow unconditionally.
+//  1. If Kind is not LineageRecord, allow unconditionally.
 //  2. If the operation is not CREATE, allow unconditionally.
 //     domainRef is authored at creation time; updates are not re-validated here.
 //  3. If domainRef is empty, allow — the LineageController will populate it.
 //  4. If domainRef equals ValidInfrastructureDomainRef, allow.
 //  5. Otherwise, reject — unknown domain ref value.
 func EvaluateDomainRefValidation(req DomainRefValidationRequest) DomainRefValidationDecision {
-	if req.Kind != InfrastructureLineageIndexKind {
+	if req.Kind != LineageRecordKind {
 		return DomainRefValidationDecision{Allowed: true}
 	}
 	if req.Operation != OperationCreate {
@@ -69,7 +69,7 @@ func EvaluateDomainRefValidation(req DomainRefValidationRequest) DomainRefValida
 		Reason: fmt.Sprintf(
 			"spec.domainRef must be %q for infrastructure domain ILIs; "+
 				"unknown domain ref %q — the only valid traceability link for "+
-				"InfrastructureLineageIndex is the infrastructure domain root at core.ontai.dev "+
+				"LineageRecord is the infrastructure domain root at core.ontai.dev "+
 				"(seam-core-schema.md §3, CLAUDE.md §14 Decision 2)",
 			ValidInfrastructureDomainRef, req.DomainRef,
 		),

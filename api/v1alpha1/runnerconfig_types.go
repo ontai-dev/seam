@@ -101,10 +101,10 @@ type RunnerConfigStepResult struct {
 	Message string `json:"message,omitempty"`
 }
 
-// InfrastructureRunnerConfigSpec is the operator-generated operational contract for a
+// RunnerConfigSpec is the operator-generated operational contract for a
 // specific cluster. Generated at runtime by platform using the runner shared library.
 // Never human-authored. INV-009, INV-010. conductor-schema.md.
-type InfrastructureRunnerConfigSpec struct {
+type RunnerConfigSpec struct {
 	// ClusterRef is the name of the TalosCluster this RunnerConfig is authoritative for.
 	ClusterRef string `json:"clusterRef"`
 
@@ -137,9 +137,9 @@ type InfrastructureRunnerConfigSpec struct {
 	SelfOperation bool `json:"selfOperation,omitempty"`
 }
 
-// InfrastructureRunnerConfigStatus is written exclusively by the Conductor agent leader.
+// RunnerConfigStatus is written exclusively by the Conductor agent leader.
 // CR-INV-006.
-type InfrastructureRunnerConfigStatus struct {
+type RunnerConfigStatus struct {
 	// Capabilities is the self-declared capability manifest emitted by the Conductor agent on startup.
 	// CR-INV-005.
 	// +optional
@@ -176,30 +176,30 @@ type InfrastructureRunnerConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=irc
+// +kubebuilder:resource:scope=Namespaced,shortName=rc
 // +kubebuilder:printcolumn:name="Cluster",type=string,JSONPath=".spec.clusterRef"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 
-// InfrastructureRunnerConfig is the seam-core CRD for Conductor agent runtime configuration.
+// RunnerConfig is the seam-core CRD for Conductor agent runtime configuration.
 // Owned by seam-core; authored exclusively by the platform operator. INV-009.
 // conductor-schema.md.
-type InfrastructureRunnerConfig struct {
+type RunnerConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   InfrastructureRunnerConfigSpec   `json:"spec,omitempty"`
-	Status InfrastructureRunnerConfigStatus `json:"status,omitempty"`
+	Spec   RunnerConfigSpec   `json:"spec,omitempty"`
+	Status RunnerConfigStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// InfrastructureRunnerConfigList contains a list of InfrastructureRunnerConfig.
-type InfrastructureRunnerConfigList struct {
+// RunnerConfigList contains a list of RunnerConfig.
+type RunnerConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []InfrastructureRunnerConfig `json:"items"`
+	Items           []RunnerConfig `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&InfrastructureRunnerConfig{}, &InfrastructureRunnerConfigList{})
+	SchemeBuilder.Register(&RunnerConfig{}, &RunnerConfigList{})
 }

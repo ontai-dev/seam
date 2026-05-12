@@ -34,9 +34,9 @@ func categoryForKind(kind string) string {
 		return idns.RecordCategoryClusterTopology
 	case "IdentityBinding", "IdentityProvider":
 		return idns.RecordCategoryIdentityPlane
-	case "InfrastructurePackInstance", "InfrastructureClusterPack", "InfrastructurePackExecution":
+	case "PackInstalled", "PackDelivery", "PackExecution":
 		return idns.RecordCategoryPackLineage
-	case "InfrastructureRunnerConfig":
+	case "RunnerConfig":
 		return idns.RecordCategoryExecutionAuthority
 	default:
 		return idns.RecordCategoryClusterTopology
@@ -71,7 +71,7 @@ func recordStrings(records []idns.Record) []string {
 // severityForObject returns the DSNSEvent severity for an object based on its
 // current condition state. Degraded condition → warning; all other states → informational.
 func severityForObject(obj *unstructured.Unstructured, kind string) string {
-	if kind == "InfrastructureRunnerConfig" && hasConditionTrue(obj, "Degraded") {
+	if kind == "RunnerConfig" && hasConditionTrue(obj, "Degraded") {
 		return idns.SeverityWarning
 	}
 	return idns.SeverityInformational
@@ -124,17 +124,17 @@ var DSNSGVKs = []schema.GroupVersionKind{
 	// (or sovereign NS delegation for screen provider). MIGRATION-3.1: seam.ontai.dev.
 	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"},
 
-	// Wrapper operator — InfrastructurePackInstance terminal Succeeded state → pack TXT. Decision G.
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"},
+	// Wrapper operator — PackInstalled terminal Succeeded state → pack TXT. Decision G.
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackInstalled"},
 
 	// Guardian operator — IdentityBinding resolved → identity TXT.
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
 
 	// Guardian operator — IdentityProvider Valid → idp TXT.
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
 
-	// Conductor — InfrastructureRunnerConfig terminal state → run TXT. Decision G.
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureRunnerConfig"},
+	// Conductor — RunnerConfig terminal state → run TXT. Decision G.
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "RunnerConfig"},
 }
 
 // DSNSReconciler watches a single GVK and projects CRD state to DNS records.
@@ -279,9 +279,9 @@ func (r *DSNSReconciler) deriveRecords(obj *unstructured.Unstructured) []idns.Re
 		return deriveIdentityBindingRecords(obj)
 	case "IdentityProvider":
 		return deriveIdentityProviderRecords(obj)
-	case "InfrastructurePackInstance":
+	case "PackInstalled":
 		return derivePackInstanceRecords(obj)
-	case "InfrastructureRunnerConfig":
+	case "RunnerConfig":
 		return deriveRunnerConfigRecords(obj)
 	default:
 		return nil

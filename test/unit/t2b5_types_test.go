@@ -1,5 +1,5 @@
 // Package unit contains unit and serialization integrity tests for T-2B-5
-// Go type additions that remain in seam-core: InfrastructureRunnerConfig and DriftSignal.
+// Go type additions that remain in seam-core: RunnerConfig and DriftSignal.
 // Pack lifecycle types and TalosCluster have been migrated out of seam-core.
 // seam-core-schema.md. Decision I, MIGRATION-3.1.
 package unit
@@ -13,12 +13,12 @@ import (
 	v1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
 )
 
-// --- InfrastructureRunnerConfig ---
+// --- RunnerConfig ---
 
-func TestInfrastructureRunnerConfig_RequiredFields(t *testing.T) {
+func TestRunnerConfig_RequiredFields(t *testing.T) {
 	t.Parallel()
-	rc := v1alpha1.InfrastructureRunnerConfig{
-		Spec: v1alpha1.InfrastructureRunnerConfigSpec{
+	rc := v1alpha1.RunnerConfig{
+		Spec: v1alpha1.RunnerConfigSpec{
 			ClusterRef:  "ccs-mgmt",
 			RunnerImage: "10.20.0.1:5000/ontai-dev/conductor:v1.9.3-dev",
 		},
@@ -31,15 +31,15 @@ func TestInfrastructureRunnerConfig_RequiredFields(t *testing.T) {
 	}
 }
 
-func TestInfrastructureRunnerConfig_RoundTrip(t *testing.T) {
+func TestRunnerConfig_RoundTrip(t *testing.T) {
 	t.Parallel()
-	rc := v1alpha1.InfrastructureRunnerConfig{
+	rc := v1alpha1.RunnerConfig{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "infrastructure.ontai.dev/v1alpha1",
-			Kind:       "InfrastructureRunnerConfig",
+			APIVersion: "seam.ontai.dev/v1alpha1",
+			Kind:       "RunnerConfig",
 		},
 		ObjectMeta: metav1.ObjectMeta{Name: "ccs-mgmt", Namespace: "ont-system"},
-		Spec: v1alpha1.InfrastructureRunnerConfigSpec{
+		Spec: v1alpha1.RunnerConfigSpec{
 			ClusterRef:  "ccs-mgmt",
 			RunnerImage: "10.20.0.1:5000/ontai-dev/conductor:v1.9.3-dev",
 			Steps: []v1alpha1.RunnerConfigStep{
@@ -52,7 +52,7 @@ func TestInfrastructureRunnerConfig_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	var got v1alpha1.InfrastructureRunnerConfig
+	var got v1alpha1.RunnerConfig
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestInfrastructureRunnerConfig_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestInfrastructureRunnerConfig_StepResultPhaseEnum(t *testing.T) {
+func TestRunnerConfig_StepResultPhaseEnum(t *testing.T) {
 	t.Parallel()
 	cases := []v1alpha1.RunnerStepResultPhase{
 		v1alpha1.RunnerStepSucceeded,

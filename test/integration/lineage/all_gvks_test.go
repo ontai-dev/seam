@@ -73,6 +73,18 @@ func expectedILIName(kind, name string) string {
 	return strings.ToLower(kind) + "-" + name
 }
 
+// buildRootLabeledCRD returns an unstructured CRD object for gvk carrying the
+// lineage-root label. Added to fake clients so IsRootDeclaration returns true.
+func buildRootLabeledCRD(gvk schema.GroupVersionKind) *unstructured.Unstructured {
+	crd := &unstructured.Unstructured{}
+	crd.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition",
+	})
+	crd.SetName(controller.CRDNameForGVK(gvk))
+	crd.SetLabels(map[string]string{"infrastructure.ontai.dev/lineage-root": "true"})
+	return crd
+}
+
 // reconcileGVK runs the LineageReconciler for the given GVK and root object.
 func reconcileGVK(t *testing.T, r *controller.LineageReconciler, name, namespace string) ctrl.Result {
 	t.Helper()
@@ -109,8 +121,8 @@ func TestLineageController_AllGVKs_ProduceILIWithCorrectRootBinding(t *testing.T
 
 			c := fake.NewClientBuilder().
 				WithScheme(s).
-				WithObjects(root).
-				WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+				WithObjects(root, buildRootLabeledCRD(gvk)).
+				WithStatusSubresource(root, &seamv1alpha1.LineageRecord{}).
 				Build()
 			r := &controller.LineageReconciler{Client: c, Scheme: s, GVK: gvk}
 
@@ -120,7 +132,7 @@ func TestLineageController_AllGVKs_ProduceILIWithCorrectRootBinding(t *testing.T
 			}
 
 			iliName := expectedILIName(gvk.Kind, rootName)
-			ili := &seamv1alpha1.InfrastructureLineageIndex{}
+			ili := &seamv1alpha1.LineageRecord{}
 			if err := c.Get(context.Background(), client.ObjectKey{Name: iliName, Namespace: ns}, ili); err != nil {
 				t.Fatalf("ILI %s not created: %v", iliName, err)
 			}
@@ -165,8 +177,8 @@ func TestLineageController_AllGVKs_LineageSyncedTransitionsToTrue(t *testing.T) 
 
 			c := fake.NewClientBuilder().
 				WithScheme(s).
-				WithObjects(root).
-				WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+				WithObjects(root, buildRootLabeledCRD(gvk)).
+				WithStatusSubresource(root, &seamv1alpha1.LineageRecord{}).
 				Build()
 			r := &controller.LineageReconciler{Client: c, Scheme: s, GVK: gvk}
 
@@ -216,15 +228,15 @@ func TestLineageController_AllGVKs_ILINameFormat(t *testing.T) {
 
 			c := fake.NewClientBuilder().
 				WithScheme(s).
-				WithObjects(root).
-				WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+				WithObjects(root, buildRootLabeledCRD(gvk)).
+				WithStatusSubresource(root, &seamv1alpha1.LineageRecord{}).
 				Build()
 			r := &controller.LineageReconciler{Client: c, Scheme: s, GVK: gvk}
 
 			reconcileGVK(t, r, rootName, ns)
 
 			wantName := strings.ToLower(gvk.Kind) + "-" + rootName
-			ili := &seamv1alpha1.InfrastructureLineageIndex{}
+			ili := &seamv1alpha1.LineageRecord{}
 			if err := c.Get(context.Background(), client.ObjectKey{Name: wantName, Namespace: ns}, ili); err != nil {
 				t.Errorf("ILI with expected name %q not found: %v", wantName, err)
 			}

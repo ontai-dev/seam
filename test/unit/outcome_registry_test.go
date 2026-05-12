@@ -41,14 +41,14 @@ func newPackInstanceWithCondition(name, namespace, iliName, condType, condStatus
 	return u
 }
 
-func newILIForOutcome(name, namespace string) *seamv1alpha1.InfrastructureLineageIndex {
-	return &seamv1alpha1.InfrastructureLineageIndex{
+func newILIForOutcome(name, namespace string) *seamv1alpha1.LineageRecord {
+	return &seamv1alpha1.LineageRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: seamv1alpha1.InfrastructureLineageIndexSpec{
-			RootBinding: seamv1alpha1.InfrastructureLineageIndexRootBinding{
+		Spec: seamv1alpha1.LineageRecordSpec{
+			RootBinding: seamv1alpha1.LineageRecordRootBinding{
 				RootKind:      "PackExecution",
 				RootName:      "exec-001",
 				RootNamespace: namespace,
@@ -83,7 +83,7 @@ func TestOutcomeRegistry_SucceededConditionAppendsEntry(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	updated := &seamv1alpha1.InfrastructureLineageIndex{}
+	updated := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name: "packexecution-exec-001", Namespace: "seam-system",
 	}, updated); err != nil {
@@ -128,7 +128,7 @@ func TestOutcomeRegistry_FailedConditionAppendsFailedEntry(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	updated := &seamv1alpha1.InfrastructureLineageIndex{}
+	updated := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name: "packexecution-exec-002", Namespace: "seam-system",
 	}, updated); err != nil {
@@ -177,7 +177,7 @@ func TestOutcomeRegistry_IdempotentOnSecondReconcile(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	updated := &seamv1alpha1.InfrastructureLineageIndex{}
+	updated := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name: "packexecution-exec-003", Namespace: "seam-system",
 	}, updated); err != nil {
@@ -227,7 +227,7 @@ func TestOutcomeRegistry_DoesNotModifyDescendantRegistry(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 
-	updated := &seamv1alpha1.InfrastructureLineageIndex{}
+	updated := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
 		Name: "packexecution-exec-004", Namespace: "seam-system",
 	}, updated); err != nil {

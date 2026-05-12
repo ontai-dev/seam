@@ -65,7 +65,7 @@ func (r *OutcomeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if iliNamespace == "" {
 		iliNamespace = obj.GetNamespace()
 	}
-	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	ili := &seamv1alpha1.LineageRecord{}
 	iliKey := client.ObjectKey{Name: iliName, Namespace: iliNamespace}
 	if err := r.Client.Get(ctx, iliKey, ili); err != nil {
 		if apierrors.IsNotFound(err) {

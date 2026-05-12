@@ -29,7 +29,7 @@ func TestEvaluateDomainRefValidation_NonILIKind_Allowed(t *testing.T) {
 // operations are always admitted — domainRef is validated only at CREATE.
 func TestEvaluateDomainRefValidation_UpdateOperation_Allowed(t *testing.T) {
 	decision := webhook.EvaluateDomainRefValidation(webhook.DomainRefValidationRequest{
-		Kind:      "InfrastructureLineageIndex",
+		Kind:      "LineageRecord",
 		Operation: webhook.OperationUpdate,
 		DomainRef: "some.unknown.ref",
 	})
@@ -42,7 +42,7 @@ func TestEvaluateDomainRefValidation_UpdateOperation_Allowed(t *testing.T) {
 // operations are always admitted.
 func TestEvaluateDomainRefValidation_DeleteOperation_Allowed(t *testing.T) {
 	decision := webhook.EvaluateDomainRefValidation(webhook.DomainRefValidationRequest{
-		Kind:      "InfrastructureLineageIndex",
+		Kind:      "LineageRecord",
 		Operation: webhook.OperationDelete,
 		DomainRef: "some.unknown.ref",
 	})
@@ -55,7 +55,7 @@ func TestEvaluateDomainRefValidation_DeleteOperation_Allowed(t *testing.T) {
 // with an empty domainRef is admitted — the LineageController will populate it.
 func TestEvaluateDomainRefValidation_EmptyDomainRef_Allowed(t *testing.T) {
 	decision := webhook.EvaluateDomainRefValidation(webhook.DomainRefValidationRequest{
-		Kind:      "InfrastructureLineageIndex",
+		Kind:      "LineageRecord",
 		Operation: webhook.OperationCreate,
 		DomainRef: "",
 	})
@@ -68,7 +68,7 @@ func TestEvaluateDomainRefValidation_EmptyDomainRef_Allowed(t *testing.T) {
 // with domainRef="infrastructure.core.ontai.dev" is admitted.
 func TestEvaluateDomainRefValidation_ValidDomainRef_Allowed(t *testing.T) {
 	decision := webhook.EvaluateDomainRefValidation(webhook.DomainRefValidationRequest{
-		Kind:      "InfrastructureLineageIndex",
+		Kind:      "LineageRecord",
 		Operation: webhook.OperationCreate,
 		DomainRef: webhook.ValidInfrastructureDomainRef,
 	})
@@ -83,7 +83,7 @@ func TestEvaluateDomainRefValidation_ValidDomainRef_Allowed(t *testing.T) {
 func TestEvaluateDomainRefValidation_UnknownDomainRef_Denied(t *testing.T) {
 	unknown := "unknown.domain.example.com"
 	decision := webhook.EvaluateDomainRefValidation(webhook.DomainRefValidationRequest{
-		Kind:      "InfrastructureLineageIndex",
+		Kind:      "LineageRecord",
 		Operation: webhook.OperationCreate,
 		DomainRef: unknown,
 	})

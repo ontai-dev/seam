@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ontai-dev/seam-core/internal/webhook"
+	"github.com/ontai-dev/seam/internal/webhook"
 )
 
 // --- Non-intercepted kinds ---

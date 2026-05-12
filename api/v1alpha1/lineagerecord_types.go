@@ -10,8 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/ontai-dev/seam-core/pkg/conditions"
-	"github.com/ontai-dev/seam-core/pkg/lineage"
+	"github.com/ontai-dev/seam/pkg/conditions"
+	"github.com/ontai-dev/seam/pkg/lineage"
 )
 
 // ConditionTypeLineageSynced and ReasonLineageControllerAbsent are re-exported from

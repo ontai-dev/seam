@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
 )
 
 // OutcomeReconciler watches derived object GVKs and appends OutcomeEntry records

@@ -12,9 +12,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
-	"github.com/ontai-dev/seam-core/internal/controller"
-	"github.com/ontai-dev/seam-core/pkg/lineage"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
+	"github.com/ontai-dev/seam/internal/controller"
+	"github.com/ontai-dev/seam/pkg/lineage"
 )
 
 var runnerConfigGVK = schema.GroupVersionKind{

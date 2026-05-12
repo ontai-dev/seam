@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	idns "github.com/ontai-dev/seam-core/internal/dns"
+	idns "github.com/ontai-dev/seam/internal/dns"
 )
 
 // ── DSNSEvent construction tests ─────────────────────────────────────────────

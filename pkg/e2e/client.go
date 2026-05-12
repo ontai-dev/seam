@@ -6,7 +6,7 @@
 //
 // Usage pattern in operator e2e suites:
 //
-//	import e2ehelpers "github.com/ontai-dev/seam-core/pkg/e2e"
+//	import e2ehelpers "github.com/ontai-dev/seam/pkg/e2e"
 //
 //	var mgmt *e2ehelpers.ClusterClient
 //

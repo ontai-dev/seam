@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	idns "github.com/ontai-dev/seam-core/internal/dns"
+	idns "github.com/ontai-dev/seam/internal/dns"
 )
 
 // categoryForKind maps a GVK kind to a DSNS record category constant.

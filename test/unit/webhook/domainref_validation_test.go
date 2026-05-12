@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ontai-dev/seam-core/internal/webhook"
+	"github.com/ontai-dev/seam/internal/webhook"
 )
 
 // TestEvaluateDomainRefValidation_NonILIKind_Allowed verifies that non-ILI kinds

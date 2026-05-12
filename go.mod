@@ -1,4 +1,4 @@
-module github.com/ontai-dev/seam-core
+module github.com/ontai-dev/seam
 
 go 1.25.3
 

@@ -19,8 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/ontai-dev/seam-core/internal/controller"
-	"github.com/ontai-dev/seam-core/pkg/lineage"
+	"github.com/ontai-dev/seam/internal/controller"
+	"github.com/ontai-dev/seam/pkg/lineage"
 )
 
 // crdGVK is the GVK for CustomResourceDefinition objects.

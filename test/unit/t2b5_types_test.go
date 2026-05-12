@@ -1,7 +1,8 @@
-// Package unit contains unit and serialization integrity tests for the T-2B-5
-// Go type additions: InfrastructureRunnerConfig, InfrastructureClusterPack,
-// InfrastructurePackExecution, InfrastructurePackInstance, InfrastructurePackReceipt,
-// InfrastructurePackBuild, InfrastructureTalosCluster, and DriftSignal.
+// Package unit contains unit and serialization integrity tests for T-2B-5
+// Go type additions that remain in seam-core: InfrastructureRunnerConfig,
+// InfrastructureTalosCluster, and DriftSignal.
+// Pack lifecycle types (PackDelivery, PackExecution, PackInstalled, PackReceipt,
+// PackLog) have been migrated to wrapper/api/seam/v1alpha1.
 // seam-core-schema.md. Decision I.
 package unit
 
@@ -80,216 +81,6 @@ func TestInfrastructureRunnerConfig_StepResultPhaseEnum(t *testing.T) {
 	}
 }
 
-// --- InfrastructureClusterPack ---
-
-func TestInfrastructureClusterPack_RequiredFields(t *testing.T) {
-	t.Parallel()
-	cp := v1alpha1.InfrastructureClusterPack{
-		Spec: v1alpha1.InfrastructureClusterPackSpec{
-			Version: "v1.14.0-r1",
-			RegistryRef: v1alpha1.InfrastructurePackRegistryRef{
-				URL:    "10.20.0.1:5000/ontai-dev/packs/cert-manager-helm",
-				Digest: "sha256:abc123",
-			},
-		},
-	}
-	if cp.Spec.Version == "" {
-		t.Fatal("Version must be set")
-	}
-	if cp.Spec.RegistryRef.URL == "" {
-		t.Fatal("RegistryRef.URL must be set")
-	}
-}
-
-func TestInfrastructureClusterPack_WS8bDigestFields(t *testing.T) {
-	t.Parallel()
-	cp := v1alpha1.InfrastructureClusterPack{
-		Spec: v1alpha1.InfrastructureClusterPackSpec{
-			Version:             "v1.14.0-r1",
-			RegistryRef:         v1alpha1.InfrastructurePackRegistryRef{URL: "r", Digest: "sha256:a"},
-			RBACDigest:          "sha256:rbac",
-			WorkloadDigest:      "sha256:workload",
-			ClusterScopedDigest: "sha256:clusterscoped",
-			ChartURL:            "http://10.20.0.1:8888/cert-manager-v1.14.0.tgz",
-			ChartName:           "cert-manager",
-			ChartVersion:        "v1.14.0",
-			HelmVersion:         "v3.17.3",
-		},
-	}
-	data, err := json.Marshal(cp)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var got v1alpha1.InfrastructureClusterPack
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if got.Spec.RBACDigest != "sha256:rbac" {
-		t.Errorf("RBACDigest: got %q", got.Spec.RBACDigest)
-	}
-	if got.Spec.ClusterScopedDigest != "sha256:clusterscoped" {
-		t.Errorf("ClusterScopedDigest: got %q", got.Spec.ClusterScopedDigest)
-	}
-	if got.Spec.HelmVersion != "v3.17.3" {
-		t.Errorf("HelmVersion: got %q", got.Spec.HelmVersion)
-	}
-}
-
-// --- InfrastructurePackExecution ---
-
-func TestInfrastructurePackExecution_RequiredFields(t *testing.T) {
-	t.Parallel()
-	pe := v1alpha1.InfrastructurePackExecution{
-		Spec: v1alpha1.InfrastructurePackExecutionSpec{
-			ClusterPackRef: v1alpha1.InfrastructureClusterPackRef{
-				Name:    "cert-manager-helm-v1.14.0-r1",
-				Version: "v1.14.0-r1",
-			},
-			TargetClusterRef: "ccs-mgmt",
-		},
-	}
-	if pe.Spec.ClusterPackRef.Name == "" {
-		t.Fatal("ClusterPackRef.Name must be set")
-	}
-	if pe.Spec.TargetClusterRef == "" {
-		t.Fatal("TargetClusterRef must be set")
-	}
-}
-
-func TestInfrastructurePackExecution_LineageFieldPresent(t *testing.T) {
-	t.Parallel()
-	chain := &lineage.SealedCausalChain{
-		RootKind: "InfrastructurePackExecution",
-		RootName: "cert-manager-helm-v1.14.0-r1",
-	}
-	pe := v1alpha1.InfrastructurePackExecution{
-		Spec: v1alpha1.InfrastructurePackExecutionSpec{
-			ClusterPackRef: v1alpha1.InfrastructureClusterPackRef{
-				Name:    "cert-manager-helm-v1.14.0-r1",
-				Version: "v1.14.0-r1",
-			},
-			TargetClusterRef: "ccs-mgmt",
-			Lineage:          chain,
-		},
-	}
-	data, err := json.Marshal(pe)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var got v1alpha1.InfrastructurePackExecution
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if got.Spec.Lineage == nil {
-		t.Fatal("Lineage must survive round trip")
-	}
-	if got.Spec.Lineage.RootKind != "InfrastructurePackExecution" {
-		t.Errorf("Lineage.RootKind: got %q", got.Spec.Lineage.RootKind)
-	}
-}
-
-// --- InfrastructurePackInstance ---
-
-func TestInfrastructurePackInstance_RequiredFields(t *testing.T) {
-	t.Parallel()
-	pi := v1alpha1.InfrastructurePackInstance{
-		Spec: v1alpha1.InfrastructurePackInstanceSpec{
-			ClusterPackRef:   "cert-manager-helm-v1.14.0-r1",
-			Version:          "v1.14.0-r1",
-			TargetClusterRef: "ccs-mgmt",
-		},
-	}
-	if pi.Spec.Version == "" {
-		t.Fatal("Version must be set")
-	}
-}
-
-// --- InfrastructurePackReceipt ---
-
-func TestInfrastructurePackReceipt_SignatureFields(t *testing.T) {
-	t.Parallel()
-	pr := v1alpha1.InfrastructurePackReceipt{
-		Spec: v1alpha1.InfrastructurePackReceiptSpec{
-			PackInstanceRef:  "cert-manager-ccs-dev",
-			SignatureRef:     "seam-pack-signed-ccs-dev-cert-manager-ccs-dev",
-			ClusterPackRef:   "cert-manager-helm-v1.14.0-r1",
-			TargetClusterRef: "ccs-mgmt",
-			RBACDigest:       "sha256:rbac",
-			WorkloadDigest:   "sha256:workload",
-		},
-		Status: v1alpha1.InfrastructurePackReceiptStatus{
-			Verified:  true,
-			Signature: "base64sig==",
-		},
-	}
-	data, err := json.Marshal(pr)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var got v1alpha1.InfrastructurePackReceipt
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if !got.Status.Verified {
-		t.Error("Status.Verified must survive round trip")
-	}
-	if got.Status.Signature != "base64sig==" {
-		t.Errorf("Status.Signature: got %q", got.Status.Signature)
-	}
-	if got.Spec.RBACDigest != "sha256:rbac" {
-		t.Errorf("RBACDigest: got %q", got.Spec.RBACDigest)
-	}
-	if got.Spec.PackInstanceRef != "cert-manager-ccs-dev" {
-		t.Errorf("PackInstanceRef: got %q", got.Spec.PackInstanceRef)
-	}
-}
-
-// --- InfrastructurePackBuild ---
-
-func TestInfrastructurePackBuild_CategoryEnum(t *testing.T) {
-	t.Parallel()
-	cases := []v1alpha1.InfrastructurePackBuildCategory{
-		v1alpha1.InfrastructurePackBuildCategoryHelm,
-		v1alpha1.InfrastructurePackBuildCategoryKustomize,
-		v1alpha1.InfrastructurePackBuildCategoryRaw,
-	}
-	for _, c := range cases {
-		if c == "" {
-			t.Errorf("category constant is empty")
-		}
-	}
-}
-
-func TestInfrastructurePackBuild_HelmSourceRoundTrip(t *testing.T) {
-	t.Parallel()
-	pb := v1alpha1.InfrastructurePackBuild{
-		Spec: v1alpha1.InfrastructurePackBuildSpec{
-			ComponentName: "cert-manager",
-			Category:      v1alpha1.InfrastructurePackBuildCategoryHelm,
-			HelmSource: &v1alpha1.InfrastructurePackHelmSource{
-				URL:     "http://10.20.0.1:8888/cert-manager-v1.14.0.tgz",
-				Chart:   "cert-manager",
-				Version: "v1.14.0",
-			},
-			TargetClusters: []string{"ccs-mgmt"},
-		},
-	}
-	data, err := json.Marshal(pb)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var got v1alpha1.InfrastructurePackBuild
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if got.Spec.HelmSource == nil {
-		t.Fatal("HelmSource must survive round trip")
-	}
-	if got.Spec.HelmSource.Chart != "cert-manager" {
-		t.Errorf("HelmSource.Chart: got %q", got.Spec.HelmSource.Chart)
-	}
-}
-
 // --- InfrastructureTalosCluster ---
 
 func TestInfrastructureTalosCluster_ModeEnum(t *testing.T) {
@@ -309,8 +100,8 @@ func TestInfrastructureTalosCluster_ImportRoleRequired(t *testing.T) {
 	t.Parallel()
 	tc := v1alpha1.InfrastructureTalosCluster{
 		Spec: v1alpha1.InfrastructureTalosClusterSpec{
-			Mode:     v1alpha1.InfrastructureTalosClusterModeImport,
-			Role:     v1alpha1.InfrastructureTalosClusterRoleManagement,
+			Mode:            v1alpha1.InfrastructureTalosClusterModeImport,
+			Role:            v1alpha1.InfrastructureTalosClusterRoleManagement,
 			ClusterEndpoint: "https://10.20.0.10:6443",
 		},
 	}
@@ -410,7 +201,6 @@ func TestDriftSignal_EscalationCounterRoundTrip(t *testing.T) {
 
 func TestDriftSignal_StateTransitionSequence(t *testing.T) {
 	t.Parallel()
-	// Verify the four valid state values are distinct strings in the correct order.
 	ordered := []v1alpha1.DriftSignalState{
 		v1alpha1.DriftSignalStatePending,
 		v1alpha1.DriftSignalStateDelivered,

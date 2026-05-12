@@ -890,16 +890,16 @@ const (
 )
 
 const (
-	// ConditionTypeWrapperRunnerRBACNotReady is set when the wrapper-runner
+	// ConditionTypeDispatcherRunnerRBACNotReady is set when the dispatcher-runner
 	// ServiceAccount in the target cluster namespace lacks a required RBAC
-	// permission. Gate 5 of the PackExecution gate check — runs via
+	// permission. Gate 5 of the PackExecution gate check -- runs via
 	// SubjectAccessReview before the Kueue Job is submitted.
 	// Terminal state: False (all required verbs allowed, proceed).
-	// Operators: wrapper (PackExecution).
-	ConditionTypeWrapperRunnerRBACNotReady = "WrapperRunnerRBACNotReady"
+	// Operators: dispatcher (PackExecution).
+	ConditionTypeDispatcherRunnerRBACNotReady = "DispatcherRunnerRBACNotReady"
 
-	// ReasonWrapperRunnerRBACNotReady is set on both True and False states.
-	ReasonWrapperRunnerRBACNotReady = "WrapperRunnerRBACNotReady"
+	// ReasonDispatcherRunnerRBACNotReady is set on both True and False states.
+	ReasonDispatcherRunnerRBACNotReady = "DispatcherRunnerRBACNotReady"
 )
 
 const (

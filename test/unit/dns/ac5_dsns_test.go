@@ -58,7 +58,7 @@ func zoneAC5(t *testing.T, fc client.Client) string {
 // AC-5 gate: cluster-topology projection contract. seam-core-schema.md §8.
 func TestAC5_DSNS_TalosCluster_Ready_ProducesClusterTopologyRecord(t *testing.T) {
 	t.Parallel()
-	tc := newUnstructured(schema.GroupVersionKind{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"},
+	tc := newUnstructured(schema.GroupVersionKind{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"},
 		"ccs-mgmt", "ont-system")
 	setField(tc, "10.10.0.1", "spec", "clusterEndpoint")
 	setField(tc, "bootstrapped", "status", "origin")
@@ -197,7 +197,7 @@ func TestAC5_DSNS_Zone_AlwaysContainsSOAandNS(t *testing.T) {
 // AC-5 gate: GVK coverage contract. seam-core-schema.md §8 Decision 4.
 func TestAC5_DSNSGVKs_ContainsAllRequiredGVKs(t *testing.T) {
 	required := []schema.GroupVersionKind{
-		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"},
+		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"},
 		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"},
 		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
 		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},

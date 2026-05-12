@@ -21,7 +21,7 @@ import (
 
 // rootGVKs used in tests — covers one from each operator family.
 var (
-	talosClusterGVK   = schema.GroupVersionKind{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"}
+	talosClusterGVK   = schema.GroupVersionKind{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"}
 	clusterPackGVK    = schema.GroupVersionKind{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureClusterPack"}
 	rbacPolicyGVK     = schema.GroupVersionKind{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "RBACPolicy"}
 	packExecutionGVK  = schema.GroupVersionKind{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackExecution"}
@@ -97,15 +97,15 @@ func TestLineageReconciler_CreatesILIForTalosCluster(t *testing.T) {
 
 	// Verify ILI was created.
 	ili := &seamv1alpha1.InfrastructureLineageIndex{}
-	iliKey := client.ObjectKey{Name: "infrastructuretaloscluster-prod-cluster", Namespace: "ont-system"}
+	iliKey := client.ObjectKey{Name: "taloscluster-prod-cluster", Namespace: "ont-system"}
 	if err := fakeClient.Get(context.Background(), iliKey, ili); err != nil {
 		t.Fatalf("expected InfrastructureLineageIndex to exist: %v", err)
 	}
 
 	// Verify rootBinding.
 	rb := ili.Spec.RootBinding
-	if rb.RootKind != "InfrastructureTalosCluster" {
-		t.Errorf("expected RootKind=InfrastructureTalosCluster, got %q", rb.RootKind)
+	if rb.RootKind != "TalosCluster" {
+		t.Errorf("expected RootKind=TalosCluster, got %q", rb.RootKind)
 	}
 	if rb.RootName != "prod-cluster" {
 		t.Errorf("expected RootName=prod-cluster, got %q", rb.RootName)
@@ -369,7 +369,7 @@ func TestLineageReconciler_ControllerAuthoredAnnotation(t *testing.T) {
 func TestLineageReconciler_AllRootDeclarationGVKsRegistered(t *testing.T) {
 	expected := map[string]bool{
 		// Platform infra
-		"infrastructure.ontai.dev/v1alpha1/InfrastructureTalosCluster":  false,
+		"seam.ontai.dev/v1alpha1/TalosCluster":  false,
 		// Platform operational
 		"platform.ontai.dev/v1alpha1/UpgradePolicy":                     false,
 		"platform.ontai.dev/v1alpha1/NodeMaintenance":                   false,
@@ -433,7 +433,7 @@ func newILIWithDescendants(t *testing.T, name, namespace string, entries []seamv
 		},
 		Spec: seamv1alpha1.InfrastructureLineageIndexSpec{
 			RootBinding: seamv1alpha1.InfrastructureLineageIndexRootBinding{
-				RootKind:      "InfrastructureTalosCluster",
+				RootKind:      "TalosCluster",
 				RootName:      name,
 				RootNamespace: namespace,
 			},
@@ -453,7 +453,7 @@ func TestLineageReconciler_RetentionPrunesStaleEntry(t *testing.T) {
 	// Build an ILI with one stale entry: CreatedAt 31 days ago, retention=30 days.
 	// The referenced object (some-runnerconfig) does not exist in the fake client.
 	staleTime := metav1.NewTime(time.Now().Add(-31 * 24 * time.Hour))
-	ili := newILIWithDescendants(t, "infrastructuretaloscluster-cluster-a", ns, []seamv1alpha1.DescendantEntry{
+	ili := newILIWithDescendants(t, "taloscluster-cluster-a", ns, []seamv1alpha1.DescendantEntry{
 		{
 			Group:             "infrastructure.ontai.dev",
 			Version:           "v1alpha1",
@@ -485,7 +485,7 @@ func TestLineageReconciler_RetentionPrunesStaleEntry(t *testing.T) {
 
 	// After reconcile the stale entry must have been pruned.
 	updatedILI := &seamv1alpha1.InfrastructureLineageIndex{}
-	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "infrastructuretaloscluster-cluster-a", Namespace: ns}, updatedILI); err != nil {
+	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "taloscluster-cluster-a", Namespace: ns}, updatedILI); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
 	if len(updatedILI.Spec.DescendantRegistry) != 0 {
@@ -503,7 +503,7 @@ func TestLineageReconciler_RetentionKeepsEntryWithinWindow(t *testing.T) {
 
 	// CreatedAt 5 days ago, retention=30 days — entry is within window.
 	recentTime := metav1.NewTime(time.Now().Add(-5 * 24 * time.Hour))
-	ili := newILIWithDescendants(t, "infrastructuretaloscluster-cluster-b", ns, []seamv1alpha1.DescendantEntry{
+	ili := newILIWithDescendants(t, "taloscluster-cluster-b", ns, []seamv1alpha1.DescendantEntry{
 		{
 			Group:        "infrastructure.ontai.dev",
 			Version:      "v1alpha1",
@@ -535,7 +535,7 @@ func TestLineageReconciler_RetentionKeepsEntryWithinWindow(t *testing.T) {
 
 	// Entry must still be present.
 	updatedILI := &seamv1alpha1.InfrastructureLineageIndex{}
-	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "infrastructuretaloscluster-cluster-b", Namespace: ns}, updatedILI); err != nil {
+	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "taloscluster-cluster-b", Namespace: ns}, updatedILI); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
 	if len(updatedILI.Spec.DescendantRegistry) != 1 {
@@ -551,7 +551,7 @@ func TestLineageReconciler_RetentionKeepsEntryWithNilCreatedAt(t *testing.T) {
 	root := newRootDeclaration(talosClusterGVK, "cluster-c", ns)
 
 	// CreatedAt is nil — entry predates retention tracking.
-	ili := newILIWithDescendants(t, "infrastructuretaloscluster-cluster-c", ns, []seamv1alpha1.DescendantEntry{
+	ili := newILIWithDescendants(t, "taloscluster-cluster-c", ns, []seamv1alpha1.DescendantEntry{
 		{
 			Group:        "infrastructure.ontai.dev",
 			Version:      "v1alpha1",
@@ -582,7 +582,7 @@ func TestLineageReconciler_RetentionKeepsEntryWithNilCreatedAt(t *testing.T) {
 	reconcileRoot(t, r, "cluster-c", ns)
 
 	updatedILI := &seamv1alpha1.InfrastructureLineageIndex{}
-	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "infrastructuretaloscluster-cluster-c", Namespace: ns}, updatedILI); err != nil {
+	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "taloscluster-cluster-c", Namespace: ns}, updatedILI); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
 	// Entry without CreatedAt must never be pruned.
@@ -600,7 +600,7 @@ func TestLineageReconciler_DeleteWithRoot_AddsOwnerReference(t *testing.T) {
 	root := newRootDeclaration(talosClusterGVK, "cluster-d", ns)
 	root.SetUID("uid-cluster-d")
 
-	ili := newILIWithDescendants(t, "infrastructuretaloscluster-cluster-d", ns, nil)
+	ili := newILIWithDescendants(t, "taloscluster-cluster-d", ns, nil)
 	ili.Spec.RetentionPolicy = &seamv1alpha1.LineageRetentionPolicy{
 		DescendantRetentionDays: 30,
 		DeleteWithRoot:          true,
@@ -620,7 +620,7 @@ func TestLineageReconciler_DeleteWithRoot_AddsOwnerReference(t *testing.T) {
 	reconcileRoot(t, r, "cluster-d", ns)
 
 	updatedILI := &seamv1alpha1.InfrastructureLineageIndex{}
-	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "infrastructuretaloscluster-cluster-d", Namespace: ns}, updatedILI); err != nil {
+	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "taloscluster-cluster-d", Namespace: ns}, updatedILI); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
 	refs := updatedILI.GetOwnerReferences()
@@ -629,7 +629,7 @@ func TestLineageReconciler_DeleteWithRoot_AddsOwnerReference(t *testing.T) {
 	}
 	found := false
 	for _, ref := range refs {
-		if ref.UID == "uid-cluster-d" && ref.Kind == "InfrastructureTalosCluster" {
+		if ref.UID == "uid-cluster-d" && ref.Kind == "TalosCluster" {
 			found = true
 			if ref.BlockOwnerDeletion == nil || !*ref.BlockOwnerDeletion {
 				t.Error("expected BlockOwnerDeletion=true on ownerReference")
@@ -649,7 +649,7 @@ func TestLineageReconciler_DeleteWithRoot_False_NoOwnerReference(t *testing.T) {
 	root := newRootDeclaration(talosClusterGVK, "cluster-e", ns)
 	root.SetUID("uid-cluster-e")
 
-	ili := newILIWithDescendants(t, "infrastructuretaloscluster-cluster-e", ns, nil)
+	ili := newILIWithDescendants(t, "taloscluster-cluster-e", ns, nil)
 	ili.Spec.RetentionPolicy = &seamv1alpha1.LineageRetentionPolicy{
 		DescendantRetentionDays: 30,
 		DeleteWithRoot:          false,
@@ -669,7 +669,7 @@ func TestLineageReconciler_DeleteWithRoot_False_NoOwnerReference(t *testing.T) {
 	reconcileRoot(t, r, "cluster-e", ns)
 
 	updatedILI := &seamv1alpha1.InfrastructureLineageIndex{}
-	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "infrastructuretaloscluster-cluster-e", Namespace: ns}, updatedILI); err != nil {
+	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: "taloscluster-cluster-e", Namespace: ns}, updatedILI); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
 	// No ownerReference should be set.
@@ -703,7 +703,7 @@ func TestLineageReconciler_ILIHasDomainRef(t *testing.T) {
 
 	ili := &seamv1alpha1.InfrastructureLineageIndex{}
 	if err := fakeClient.Get(context.Background(),
-		client.ObjectKey{Name: "infrastructuretaloscluster-dc-cluster", Namespace: "ont-system"}, ili); err != nil {
+		client.ObjectKey{Name: "taloscluster-dc-cluster", Namespace: "ont-system"}, ili); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
 
@@ -721,7 +721,7 @@ func TestLineageReconciler_ILINameDerivation(t *testing.T) {
 		rootName string
 		wantName string
 	}{
-		{talosClusterGVK, "prod", "infrastructuretaloscluster-prod"},
+		{talosClusterGVK, "prod", "taloscluster-prod"},
 		{clusterPackGVK, "cilium-v1", "infrastructureclusterpack-cilium-v1"},
 		{rbacPolicyGVK, "platform", "rbacpolicy-platform"},
 		{packExecutionGVK, "deploy-123", "infrastructurepackexecution-deploy-123"},

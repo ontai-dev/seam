@@ -30,7 +30,7 @@ import (
 // categoryForKind maps a GVK kind to a DSNS record category constant.
 func categoryForKind(kind string) string {
 	switch kind {
-	case "InfrastructureTalosCluster", "SeamInfrastructureCluster", "SeamInfrastructureMachine":
+	case "TalosCluster", "SeamInfrastructureCluster", "SeamInfrastructureMachine":
 		return idns.RecordCategoryClusterTopology
 	case "IdentityBinding", "IdentityProvider":
 		return idns.RecordCategoryIdentityPlane
@@ -120,9 +120,9 @@ const DSNSFinalizer = "dsns.infrastructure.ontai.dev/cleanup"
 // CRD state is projected to DNS records in seam.ontave.dev.
 // seam-core-schema.md §8 Decision 4.
 var DSNSGVKs = []schema.GroupVersionKind{
-	// Platform operator — InfrastructureTalosCluster Ready state → cluster A, api A, role TXT
-	// (or sovereign NS delegation for screen provider). Decision G.
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"},
+	// Platform operator — TalosCluster Ready state → cluster A, api A, role TXT
+	// (or sovereign NS delegation for screen provider). MIGRATION-3.1: seam.ontai.dev.
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"},
 
 	// Wrapper operator — InfrastructurePackInstance terminal Succeeded state → pack TXT. Decision G.
 	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"},
@@ -252,9 +252,9 @@ func (r *DSNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// TalosCluster: log the cluster name and Ready status before derivation to aid
 	// diagnosis when the cluster is Ready but records are not appearing in the zone.
 	// The reconciler watches all namespaces and requires Ready=True to emit records.
-	if r.GVK.Kind == "InfrastructureTalosCluster" {
+	if r.GVK.Kind == "TalosCluster" {
 		ready := hasConditionTrue(obj, "Ready")
-		logger.V(1).Info("reconciling InfrastructureTalosCluster DNS records",
+		logger.V(1).Info("reconciling TalosCluster DNS records",
 			"cluster", obj.GetName(), "namespace", obj.GetNamespace(), "ready", ready)
 	}
 	records := r.deriveRecords(obj)
@@ -273,7 +273,7 @@ func (r *DSNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 // seam-core-schema.md §8 Decision 4.
 func (r *DSNSReconciler) deriveRecords(obj *unstructured.Unstructured) []idns.Record {
 	switch r.GVK.Kind {
-	case "InfrastructureTalosCluster":
+	case "TalosCluster":
 		return deriveTalosClusterRecords(obj)
 	case "IdentityBinding":
 		return deriveIdentityBindingRecords(obj)

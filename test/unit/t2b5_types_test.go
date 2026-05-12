@@ -1,9 +1,7 @@
 // Package unit contains unit and serialization integrity tests for T-2B-5
-// Go type additions that remain in seam-core: InfrastructureRunnerConfig,
-// InfrastructureTalosCluster, and DriftSignal.
-// Pack lifecycle types (PackDelivery, PackExecution, PackInstalled, PackReceipt,
-// PackLog) have been migrated to wrapper/api/seam/v1alpha1.
-// seam-core-schema.md. Decision I.
+// Go type additions that remain in seam-core: InfrastructureRunnerConfig and DriftSignal.
+// Pack lifecycle types and TalosCluster have been migrated out of seam-core.
+// seam-core-schema.md. Decision I, MIGRATION-3.1.
 package unit
 
 import (
@@ -13,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
-	"github.com/ontai-dev/seam-core/pkg/lineage"
 )
 
 // --- InfrastructureRunnerConfig ---
@@ -78,58 +75,6 @@ func TestInfrastructureRunnerConfig_StepResultPhaseEnum(t *testing.T) {
 		if c == "" {
 			t.Errorf("RunnerStepResultPhase constant is empty")
 		}
-	}
-}
-
-// --- InfrastructureTalosCluster ---
-
-func TestInfrastructureTalosCluster_ModeEnum(t *testing.T) {
-	t.Parallel()
-	cases := []v1alpha1.InfrastructureTalosClusterMode{
-		v1alpha1.InfrastructureTalosClusterModeBootstrap,
-		v1alpha1.InfrastructureTalosClusterModeImport,
-	}
-	for _, c := range cases {
-		if c == "" {
-			t.Errorf("mode constant is empty")
-		}
-	}
-}
-
-func TestInfrastructureTalosCluster_ImportRoleRequired(t *testing.T) {
-	t.Parallel()
-	tc := v1alpha1.InfrastructureTalosCluster{
-		Spec: v1alpha1.InfrastructureTalosClusterSpec{
-			Mode:            v1alpha1.InfrastructureTalosClusterModeImport,
-			Role:            v1alpha1.InfrastructureTalosClusterRoleManagement,
-			ClusterEndpoint: "https://10.20.0.10:6443",
-		},
-	}
-	if tc.Spec.Role == "" {
-		t.Fatal("Role must be set for mode=import")
-	}
-}
-
-func TestInfrastructureTalosCluster_LineageFieldPresent(t *testing.T) {
-	t.Parallel()
-	chain := &lineage.SealedCausalChain{RootKind: "InfrastructureTalosCluster", RootName: "ccs-mgmt"}
-	tc := v1alpha1.InfrastructureTalosCluster{
-		Spec: v1alpha1.InfrastructureTalosClusterSpec{
-			Mode:    v1alpha1.InfrastructureTalosClusterModeImport,
-			Role:    v1alpha1.InfrastructureTalosClusterRoleManagement,
-			Lineage: chain,
-		},
-	}
-	data, err := json.Marshal(tc)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var got v1alpha1.InfrastructureTalosCluster
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if got.Spec.Lineage == nil {
-		t.Fatal("Lineage must survive round trip")
 	}
 }
 

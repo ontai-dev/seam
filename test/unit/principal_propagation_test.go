@@ -70,7 +70,7 @@ func TestPrincipalPropagation_ILICreatedWithDeclaringPrincipal(t *testing.T) {
 
 	ili := &seamv1alpha1.InfrastructureLineageIndex{}
 	if err := c.Get(context.Background(), client.ObjectKey{
-		Name:      "infrastructuretaloscluster-prod",
+		Name:      "taloscluster-prod",
 		Namespace: "seam-system",
 	}, ili); err != nil {
 		t.Fatalf("get ILI: %v", err)
@@ -101,7 +101,7 @@ func TestPrincipalPropagation_AnnotationAbsentSetsSystemUnknown(t *testing.T) {
 
 	ili := &seamv1alpha1.InfrastructureLineageIndex{}
 	if err := c.Get(context.Background(), client.ObjectKey{
-		Name: "infrastructuretaloscluster-dev", Namespace: "seam-system",
+		Name: "taloscluster-dev", Namespace: "seam-system",
 	}, ili); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
@@ -120,12 +120,12 @@ func TestPrincipalPropagation_DescendantActorRefMatchesILI(t *testing.T) {
 	// Pre-create an ILI with a known declaringPrincipal.
 	ili := &seamv1alpha1.InfrastructureLineageIndex{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "infrastructuretaloscluster-prod",
+			Name:      "taloscluster-prod",
 			Namespace: "seam-system",
 		},
 		Spec: seamv1alpha1.InfrastructureLineageIndexSpec{
 			RootBinding: seamv1alpha1.InfrastructureLineageIndexRootBinding{
-				RootKind:           "InfrastructureTalosCluster",
+				RootKind:           "TalosCluster",
 				RootName:           "prod",
 				RootNamespace:      "seam-system",
 				RootUID:            "uid-tc-prod",
@@ -138,7 +138,7 @@ func TestPrincipalPropagation_DescendantActorRefMatchesILI(t *testing.T) {
 	}
 
 	// Create a RunnerConfig with the root-ili label pointing to this ILI.
-	rc := newRunnerConfigWithActorRef("rc-001", "ont-system", "infrastructuretaloscluster-prod", "seam-system", "alice@example.com")
+	rc := newRunnerConfigWithActorRef("rc-001", "ont-system", "taloscluster-prod", "seam-system", "alice@example.com")
 	if err := c.Create(context.Background(), rc); err != nil {
 		t.Fatalf("create RunnerConfig: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestPrincipalPropagation_DescendantActorRefMatchesILI(t *testing.T) {
 
 	updated := &seamv1alpha1.InfrastructureLineageIndex{}
 	if err := c.Get(context.Background(), client.ObjectKey{
-		Name: "infrastructuretaloscluster-prod", Namespace: "seam-system",
+		Name: "taloscluster-prod", Namespace: "seam-system",
 	}, updated); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
@@ -177,12 +177,12 @@ func TestPrincipalPropagation_DescendantCreatedAtIsSet(t *testing.T) {
 
 	ili := &seamv1alpha1.InfrastructureLineageIndex{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "infrastructuretaloscluster-prod",
+			Name:      "taloscluster-prod",
 			Namespace: "seam-system",
 		},
 		Spec: seamv1alpha1.InfrastructureLineageIndexSpec{
 			RootBinding: seamv1alpha1.InfrastructureLineageIndexRootBinding{
-				RootKind:      "InfrastructureTalosCluster",
+				RootKind:      "TalosCluster",
 				RootName:      "prod",
 				RootNamespace: "seam-system",
 			},
@@ -192,7 +192,7 @@ func TestPrincipalPropagation_DescendantCreatedAtIsSet(t *testing.T) {
 		t.Fatalf("create ILI: %v", err)
 	}
 
-	rc := newRunnerConfig("rc-002", "ont-system", "infrastructuretaloscluster-prod")
+	rc := newRunnerConfig("rc-002", "ont-system", "taloscluster-prod")
 	rc.SetLabels(addLabel(rc.GetLabels(), controller.LabelRootILINamespace, "seam-system"))
 	if err := c.Create(context.Background(), rc); err != nil {
 		t.Fatalf("create RunnerConfig: %v", err)
@@ -211,7 +211,7 @@ func TestPrincipalPropagation_DescendantCreatedAtIsSet(t *testing.T) {
 
 	updated := &seamv1alpha1.InfrastructureLineageIndex{}
 	if err := c.Get(context.Background(), client.ObjectKey{
-		Name: "infrastructuretaloscluster-prod", Namespace: "seam-system",
+		Name: "taloscluster-prod", Namespace: "seam-system",
 	}, updated); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}

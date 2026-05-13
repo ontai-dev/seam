@@ -1,15 +1,29 @@
-## seam-core: Operational Constraints
-> Read ~/ontai/CLAUDE.md first. The constraints below extend the root constitutional document.
+## seam: Operational Constraints
+
+Read `~/ontai/CLAUDE.md` first. The constraints below extend the root constitutional document.
+
+---
 
 ### Schema authority
-Primary: docs/seam-core-schema.md
-Supporting: ~/ontai/domain-core/docs/domain-core-schema.md (DomainLineageIndex schema owner)
+
+Primary reference: `docs/seam-schema.md`
+
+`docs/seam-schema.md` is the authoritative field-level specification for every CRD type declared in this repository and for the shared library packages in `pkg/`. Read it in full before any CRD change or shared library change. Source files are the ground truth for field shapes; the schema doc reflects them and must be kept in sync.
+
+---
 
 ### Invariants
-SC-INV-001 -- seam-core owns all cross-operator CRD definitions under infrastructure.ontai.dev. The complete set of seam-core-owned types is: InfrastructureLineageIndex, InfrastructureRunnerConfig, InfrastructurePackReceipt, InfrastructureClusterPack, InfrastructurePackExecution, InfrastructurePackInstance, InfrastructurePackBuild, InfrastructureTalosCluster, DriftSignal, InfrastructurePolicy, InfrastructureProfile. Reconcilers for these CRDs live in the operator repos that own the domain logic, not in seam-core.
-SC-INV-002 -- RunnerConfig and all cross-operator CRD type migrations to seam-core are complete as of Phase 2B (2026-04-25). No further governed migration sessions are required. The old API groups runner.ontai.dev and infra.ontai.dev are superseded. All new CRD work goes directly into seam-core under infrastructure.ontai.dev.
-SC-INV-003 -- seam-core CRD manifests are installed before all operators. No operator reaches Running state on a cluster that has not applied the seam-core CRD bundle first.
+
+SC-INV-001 -- seam owns all cross-operator CRD definitions under seam.ontai.dev. The complete set of seam-owned types is: LineageRecord, RunnerConfig, DriftSignal, SeamMembership. Reconcilers for these CRDs live in the operator repos that own the domain logic, not in seam.
+
+SC-INV-002 -- All new CRD work goes directly into seam under seam.ontai.dev. No new type is declared outside this repository without an explicit Governor directive.
+
+SC-INV-003 -- seam CRD manifests are installed before all operators. No operator reaches Running state on a cluster that has not applied the seam CRD bundle first.
+
+---
 
 ### Session protocol additions
-Step 4a -- Read docs/seam-core-schema.md in full before any CRD or shared library change.
-Step 4b -- Any change to the creation rationale vocabulary (the Go constant enumeration owned by seam-core) requires a PR and Platform Governor review. No operator may extend the enumeration unilaterally. (root Section 14 Decision 5)
+
+Step 4a -- Read `docs/seam-schema.md` in full before any CRD or shared library change.
+
+Step 4b -- Any change to the `CreationRationale` vocabulary (the Go constant enumeration in `pkg/lineage/rationale.go`) requires a PR and Platform Governor review. No operator may extend the enumeration unilaterally. (root Section 14 Decision 5)

@@ -1,134 +1,82 @@
-# seam-core
+# seam
 
-**Seam Core - Cross-operator CRD definitions and shared library**
-**API Group:** `infrastructure.ontai.dev`
+API group: `seam.ontai.dev`
 
----
-
-## What this repository is
-
-`seam-core` declares the cross-operator CRD types shared across the Seam platform
-and owns the shared library packages imported by all operators and both Compiler
-and Conductor binaries.
-
-No operator or binary in the Seam stack is deployed from this repository.
-`seam-core` is a schema controller and library repository.
+seam owns the cross-operator CRD type definitions and shared library packages for the ONT platform. No operator binary is deployed from this repository. seam installs its CRD manifests before all operators reach Running state on any cluster (SC-INV-003).
 
 ---
 
-## CRDs
+## CRD types
 
-| Kind | API Group | Role |
-|---|---|---|
-| `InfrastructureLineageIndex` | `infrastructure.ontai.dev` | Sealed causal chain index for infrastructure declarations |
-| `SeamMembership` | `infrastructure.ontai.dev` | Domain membership record linking a principal to a target cluster |
+All four types are under `seam.ontai.dev/v1alpha1`.
+
+| Kind | Short name | Scope | Authoring principal |
+|---|---|---|---|
+| LineageRecord | lr | Namespaced | LineageController (controller-authored exclusively) |
+| RunnerConfig | rc | Namespaced | platform operator (operator-generated, never human-authored) |
+| DriftSignal | ds | Namespaced | conductor role=tenant |
+| SeamMembership | sm | Namespaced | human / GitOps |
+
+Schema reference: [docs/seam-schema.md](docs/seam-schema.md)
 
 ---
 
 ## Shared packages
 
-| Package | Role |
-|---|---|
-| `pkg/lineage` | `CreationRationale` enumeration and lineage record construction helpers |
-| `pkg/conditions` | Shared condition type constants used across all Seam CRDs |
-| `pkg/e2e` | End-to-end test helpers (not imported in production code) |
+### `pkg/lineage`
 
----
+Defines the `SealedCausalChain` type embedded in every Seam-managed CRD spec. Defines `CreationRationale`, the compile-time controlled vocabulary for why a derived object was created. Provides `SetDescendantLabels` for operators to mark derived objects at creation time. No operator extends this vocabulary unilaterally -- new values require a seam PR and Platform Governor review.
 
-## InfrastructureLineageIndex
+Import path: `github.com/ontai-dev/seam/pkg/lineage`
 
-`InfrastructureLineageIndex` is the concrete instantiation of the
-`DomainLineageIndex` abstract pattern from `domain-core`. One instance is created
-per root declaration, never one per derived object. This is the **Lineage Index
-Pattern**.
+### `pkg/conditions`
 
-Key properties:
-- `spec.rootBinding` is immutable after creation. The admission webhook rejects any
-  UPDATE that modifies this section.
-- `spec.descendantRegistry` is monotonically growing. Entries are appended, never
-  modified or removed.
-- Controller-authored exclusively. Writes from any principal other than the
-  designated controller service account are rejected at admission.
+Defines condition type and reason string constants for all ONT operators. This package is the single source of truth for every condition type and reason used across guardian, platform, dispatcher, and conductor. Operators import these constants rather than declaring their own strings.
 
----
-
-## SeamMembership
-
-`SeamMembership` records that a principal (identified by a Kubernetes service account
-reference) has been admitted to a target cluster domain. The reconciler in `guardian`
-owns this record.
-
-Admission requires:
-1. The referenced `RBACProfile` exists and has `provisioned=true`.
-2. The `domainIdentityRef` in the `RBACProfile` matches the `principalRef`.
-
----
-
-## CreationRationale vocabulary
-
-The `pkg/lineage` package exports the `CreationRationale` enumeration. This is the
-compile-time controlled vocabulary for why a root declaration was created. All
-operators and both binaries import this enumeration. New values require a Pull
-Request to this repository and a Platform Governor review.
-
-Current values:
-- `ClusterProvision`
-- `ClusterDecommission`
-- `SecurityEnforcement`
-- `PackExecution`
-- `VirtualizationFulfillment`
-- `ConductorAssignment`
-- `VortexBinding`
+Import path: `github.com/ontai-dev/seam/pkg/conditions`
 
 ---
 
 ## Building
 
-```sh
-go build ./...
+Compile all packages:
+
+```
+make build
 ```
 
-There is no deployable binary in this repository. The build target confirms that
-all packages compile cleanly.
+Generate deep-copy methods and CRD manifests:
+
+```
+make generate
+```
+
+Requires `controller-gen` on PATH or at `~/go/bin/controller-gen`.
 
 ---
 
 ## Testing
 
-```sh
-go test ./...
+Unit tests:
+
+```
+make test-unit
 ```
 
----
+End-to-end tests require `MGMT_KUBECONFIG` to be set. All e2e specs skip automatically when the variable is absent:
 
-## Schema reference
-
-- `docs/seam-core-schema.md` - Full API contract and field definitions
+```
+make e2e
+```
 
 ---
 
 ## Status
 
-Alpha. Deployed and tested on management cluster (ccs-mgmt).
-Tenant cluster onboarding is not yet verified end to end.
-See [docs/seam-core-schema.md](./docs/seam-core-schema.md)
-for current capability and known gaps.
+Alpha. API group `seam.ontai.dev/v1alpha1`. No type in this group has graduated to beta.
 
-CRDs are deployed and reconciling on the live management cluster.
-The schema specification is published at:
-https://schema.ontai.dev/v1alpha1/
-
-## Contributing
-
-Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull
-request. Every new reconciliation behavior requires a written
-specification and senior engineer sign-off before any code is
-written.
-
-File issues at https://github.com/ontai-dev/seam-core/issues.
-For security issues contact security@ontai.dev directly.
+Issues: https://github.com/ontai-dev/seam/issues
 
 ---
 
-*seam-core - Seam Core Schema Controller and Shared Library*
-*Apache License, Version 2.0*
+seam - Seam Cross-Operator CRD Definitions and Shared Library / Apache License, Version 2.0

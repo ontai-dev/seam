@@ -31,7 +31,7 @@ func newTalosCluster(name, namespace string, annotations map[string]string) *uns
 			"type":               "LineageSynced",
 			"status":             "False",
 			"reason":             "LineageControllerAbsent",
-			"message":            "InfrastructureLineageController is not yet deployed.",
+			"message":            "LineageController is not yet deployed.",
 			"lastTransitionTime": metav1.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		},
 	}, "status", "conditions")

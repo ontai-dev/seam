@@ -1,6 +1,6 @@
 // Package lineage_test contains integration tests for the seam-core
-// InfrastructureLineageController, verifying that all 9 registered root declaration
-// GVKs produce a correctly structured InfrastructureLineageIndex with the right
+// LineageController, verifying that all registered root declaration
+// GVKs produce a correctly structured LineageRecord with the right
 // rootBinding, governance annotation, and LineageSynced=True condition.
 //
 // Tests use controller-runtime's fake client — no live cluster or envtest required.
@@ -8,7 +8,7 @@
 // in controller.RootDeclarationGVKs, providing a regression guard against accidental
 // GVK removal or ILI naming drift.
 //
-// seam-core-schema.md §7. CLAUDE.md Decisions 1-6. Root invariant: 9 GVKs.
+// seam-core-schema.md §7. CLAUDE.md Decisions 1-6.
 package lineage_test
 
 import (
@@ -60,7 +60,7 @@ func buildRootDeclaration(gvk schema.GroupVersionKind, name, namespace string) *
 			"type":               seamv1alpha1.ConditionTypeLineageSynced,
 			"status":             "False",
 			"reason":             "LineageControllerAbsent",
-			"message":            "InfrastructureLineageController is not yet deployed.",
+			"message":            "LineageController is not yet deployed.",
 			"lastTransitionTime": metav1.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		},
 	}, "status", "conditions")
@@ -248,7 +248,7 @@ func TestLineageController_AllGVKs_ILINameFormat(t *testing.T) {
 // Guards against silent additions or removals. seam-core-schema.md §7.
 func TestLineageController_GVKCount(t *testing.T) {
 	// 1 platform infra + 10 platform operational + 2 platform CAPI +
-	// 3 wrapper + 5 guardian = 21
+	// 3 dispatcher + 5 guardian = 21
 	const expected = 21
 	if got := len(controller.RootDeclarationGVKs); got != expected {
 		t.Errorf("RootDeclarationGVKs count = %d, want %d", got, expected)

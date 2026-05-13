@@ -1,6 +1,6 @@
 // Package e2e contains the seam-core end-to-end test suite.
 //
-// These tests verify the InfrastructureLineageIndex lifecycle and the
+// These tests verify the LineageRecord lifecycle and the
 // LineageController index management behaviour on a live cluster.
 //
 // Required environment variables:

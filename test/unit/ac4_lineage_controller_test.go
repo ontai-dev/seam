@@ -2,14 +2,14 @@ package unit_test
 
 // AC-4: LineageController manifest tracking acceptance contract.
 //
-// AC-4: When a root declaration CR is created, the InfrastructureLineageController
+// AC-4: When a root declaration CR is created, the LineageController
 // must:
-//   - Create exactly one InfrastructureLineageIndex with the deterministic name
+//   - Create exactly one LineageRecord with the deterministic name
 //     {lowercasekind}-{name} in the same namespace as the root declaration.
 //   - Set governance.infrastructure.ontai.dev/lineage-index-ref annotation on the root.
 //   - Transition LineageSynced from False/LineageControllerAbsent to True/LineageIndexCreated.
 //   - Initialize DescendantRegistry as nil (empty at creation).
-//   - Be idempotent: a second reconcile must not create a duplicate ILI.
+//   - Be idempotent: a second reconcile must not create a duplicate LineageRecord.
 //   - Cover all 9 root declaration GVKs registered in RootDeclarationGVKs.
 //
 // These tests constitute the acceptance contract gate for AC-4.
@@ -46,9 +46,9 @@ func buildAC4ReconcilerWithClient(t *testing.T, gvk schema.GroupVersionKind, roo
 }
 
 // TestAC4_LineageReconciler_CreatesILIWithDeterministicName verifies that reconciling
-// a root declaration creates an InfrastructureLineageIndex named {lowercasekind}-{name}
+// a root declaration creates a LineageRecord named {lowercasekind}-{name}
 // in the same namespace, with rootBinding populated correctly.
-// AC-4 gate: ILI creation and naming contract. CLAUDE.md §14 Decision 4.
+// AC-4 gate: LineageRecord creation and naming contract. CLAUDE.md §14 Decision 4.
 func TestAC4_LineageReconciler_CreatesILIWithDeterministicName(t *testing.T) {
 	root := newRootDeclaration(talosClusterGVK, "prod-cluster", "seam-system")
 	r, c := buildAC4ReconcilerWithClient(t, talosClusterGVK, root)
@@ -60,7 +60,7 @@ func TestAC4_LineageReconciler_CreatesILIWithDeterministicName(t *testing.T) {
 		Name:      "taloscluster-prod-cluster",
 		Namespace: "seam-system",
 	}, ili); err != nil {
-		t.Fatalf("AC-4: InfrastructureLineageIndex taloscluster-prod-cluster not found: %v", err)
+		t.Fatalf("AC-4: LineageRecord taloscluster-prod-cluster not found: %v", err)
 	}
 	if ili.Spec.RootBinding.RootKind != "TalosCluster" {
 		t.Errorf("AC-4: ILI rootBinding.rootKind = %q, want TalosCluster", ili.Spec.RootBinding.RootKind)
@@ -123,7 +123,7 @@ func TestAC4_LineageReconciler_TransitionsLineageSyncedToTrue(t *testing.T) {
 // TestAC4_LineageReconciler_GovernanceAnnotationOnRoot verifies that the
 // governance.infrastructure.ontai.dev/lineage-index-ref annotation is written
 // onto the root declaration after reconcile. This annotation is the controller's
-// idempotency guard and the cross-object reference to the ILI.
+// idempotency guard and the cross-object reference to the LineageRecord.
 // AC-4 gate: governance annotation contract. CLAUDE.md §14 Decision 3.
 func TestAC4_LineageReconciler_GovernanceAnnotationOnRoot(t *testing.T) {
 	root := newRootDeclaration(rbacPolicyGVK, "platform-policy", "seam-system")
@@ -143,7 +143,7 @@ func TestAC4_LineageReconciler_GovernanceAnnotationOnRoot(t *testing.T) {
 }
 
 // TestAC4_LineageReconciler_Idempotent verifies that a second reconcile does not
-// create a duplicate ILI. The total ILI count in the namespace must be exactly 1
+// create a duplicate LineageRecord. The total LineageRecord count in the namespace must be exactly 1
 // after two reconcile calls. CLAUDE.md §14 Decision 4.
 // AC-4 gate: idempotency contract.
 func TestAC4_LineageReconciler_Idempotent(t *testing.T) {

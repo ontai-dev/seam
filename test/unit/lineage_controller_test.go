@@ -54,7 +54,7 @@ func newRootDeclaration(gvk schema.GroupVersionKind, name, namespace string) *un
 			"type":               "LineageSynced",
 			"status":             "False",
 			"reason":             "LineageControllerAbsent",
-			"message":            "InfrastructureLineageController is not yet deployed.",
+			"message":            "LineageController is not yet deployed.",
 			"lastTransitionTime": metav1.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		},
 	}, "status", "conditions")
@@ -73,7 +73,7 @@ func reconcileRoot(t *testing.T, r *controller.LineageReconciler, name, namespac
 }
 
 // TestLineageReconciler_CreatesILIForTalosCluster verifies that reconciling a
-// TalosCluster root declaration creates an InfrastructureLineageIndex with
+// TalosCluster root declaration creates a LineageRecord with
 // the correct rootBinding.
 func TestLineageReconciler_CreatesILIForTalosCluster(t *testing.T) {
 	s := newTestScheme(t)
@@ -95,11 +95,11 @@ func TestLineageReconciler_CreatesILIForTalosCluster(t *testing.T) {
 		t.Errorf("expected no requeue, got %+v", result)
 	}
 
-	// Verify ILI was created.
+	// Verify LineageRecord was created.
 	ili := &seamv1alpha1.LineageRecord{}
 	iliKey := client.ObjectKey{Name: "taloscluster-prod-cluster", Namespace: "ont-system"}
 	if err := fakeClient.Get(context.Background(), iliKey, ili); err != nil {
-		t.Fatalf("expected InfrastructureLineageIndex to exist: %v", err)
+		t.Fatalf("expected LineageRecord to exist: %v", err)
 	}
 
 	// Verify rootBinding.
@@ -332,7 +332,7 @@ func TestLineageReconciler_ILIRootBindingImmutable(t *testing.T) {
 }
 
 // TestLineageReconciler_ControllerAuthoredAnnotation verifies that newly created
-// InfrastructureLineageIndex instances carry the controller-authored governance
+// LineageRecord instances carry the controller-authored governance
 // annotation per CLAUDE.md §14 Decision 3.
 func TestLineageReconciler_ControllerAuthoredAnnotation(t *testing.T) {
 	s := newTestScheme(t)
@@ -418,7 +418,7 @@ func TestLineageReconciler_AllRootDeclarationGVKsRegistered(t *testing.T) {
 
 // --- Retention policy tests ---
 
-// newILIWithDescendants builds an InfrastructureLineageIndex with a pre-populated
+// newILIWithDescendants builds a LineageRecord with a pre-populated
 // DescendantRegistry for retention tests. Each entry's CreatedAt is set to the
 // provided age ago.
 func newILIWithDescendants(t *testing.T, name, namespace string, entries []seamv1alpha1.DescendantEntry) *seamv1alpha1.LineageRecord {
@@ -682,7 +682,7 @@ func TestLineageReconciler_DeleteWithRoot_False_NoOwnerReference(t *testing.T) {
 }
 
 // TestLineageReconciler_ILIHasDomainRef verifies that a newly created
-// InfrastructureLineageIndex carries spec.domainRef set to the canonical
+// LineageRecord carries spec.domainRef set to the canonical
 // infrastructure domain reference. CLAUDE.md §14 Decision 2.
 func TestLineageReconciler_ILIHasDomainRef(t *testing.T) {
 	s := newTestScheme(t)
@@ -753,7 +753,7 @@ func TestLineageReconciler_ILINameDerivation(t *testing.T) {
 }
 
 // TestLineageReconciler_PackInstanceCreatesILIAndSetsLineageSynced verifies the
-// full reconcile path for infrastructure.ontai.dev/v1alpha1/InfrastructurePackInstance: an ILI is created
+// full reconcile path for seam.ontai.dev/v1alpha1/PackInstalled: a LineageRecord is created
 // and LineageSynced is transitioned to True.
 //
 // PackInstance was identified in SEAM-CORE-BL-LINEAGE as having LineageSynced=False
@@ -783,7 +783,7 @@ func TestLineageReconciler_PackInstanceCreatesILIAndSetsLineageSynced(t *testing
 		t.Errorf("expected no requeue, got %+v", result)
 	}
 
-	// Verify ILI was created with correct rootBinding.
+	// Verify LineageRecord was created with correct rootBinding.
 	ili := &seamv1alpha1.LineageRecord{}
 	iliKey := client.ObjectKey{Name: "packinstalled-cilium-v1-ccs-mgmt", Namespace: "ont-system"}
 	if err := fakeClient.Get(context.Background(), iliKey, ili); err != nil {

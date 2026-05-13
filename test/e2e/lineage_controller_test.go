@@ -10,19 +10,19 @@ package e2e_test
 //     (the LineageController watches root declarations)
 //
 // What this test verifies (seam-core-schema.md §3, conductor-schema.md §14 Decision 3):
-//   - LineageController creates exactly one InfrastructureLineageIndex per root declaration
-//   - ILI name follows the lineage.IndexName(rootKind, rootName) pattern
-//   - ILI spec.rootBinding fields match the root declaration (kind, name, namespace, UID, generation)
-//   - ILI spec.rootBinding is immutable — an attempted UPDATE to rootBinding is rejected
-//   - ILI spec.descendantRegistry starts empty and grows as derived objects are created
-//   - A second TalosCluster CR creates a separate ILI (one per root, not shared)
+//   - LineageController creates exactly one LineageRecord per root declaration
+//   - LineageRecord name follows the lineage.IndexName(rootKind, rootName) pattern
+//   - LineageRecord spec.rootBinding fields match the root declaration (kind, name, namespace, UID, generation)
+//   - LineageRecord spec.rootBinding is immutable — an attempted UPDATE to rootBinding is rejected
+//   - LineageRecord spec.descendantRegistry starts empty and grows as derived objects are created
+//   - A second TalosCluster CR creates a separate LineageRecord (one per root, not shared)
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
 var _ = Describe("LineageController index creation", func() {
-	It("LineageController creates one InfrastructureLineageIndex per TalosCluster", func() {
+	It("LineageController creates one LineageRecord per TalosCluster", func() {
 		Skip("lab cluster not yet provisioned")
 	})
 
@@ -30,11 +30,11 @@ var _ = Describe("LineageController index creation", func() {
 		Skip("lab cluster not yet provisioned")
 	})
 
-	It("ILI spec.rootBinding is immutable — webhook rejects UPDATE to any rootBinding field", func() {
+	It("LineageRecord spec.rootBinding is immutable — webhook rejects UPDATE to any rootBinding field", func() {
 		Skip("lab cluster not yet provisioned")
 	})
 
-	It("ILI spec.descendantRegistry grows as RunnerConfig and derived objects are created", func() {
+	It("LineageRecord spec.descendantRegistry grows as RunnerConfig and derived objects are created", func() {
 		Skip("lab cluster not yet provisioned")
 	})
 

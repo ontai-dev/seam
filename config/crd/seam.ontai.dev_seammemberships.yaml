@@ -4,21 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
-  name: infrastructurepackbuilds.infrastructure.ontai.dev
+  name: seammemberships.seam.ontai.dev
 spec:
-  group: infrastructure.ontai.dev
+  group: seam.ontai.dev
   names:
-    kind: InfrastructurePackBuild
-    listKind: InfrastructurePackBuildList
-    plural: infrastructurepackbuilds
+    kind: SeamMembership
+    listKind: SeamMembershipList
+    plural: seammemberships
     shortNames:
-    - ipb
-    singular: infrastructurepackbuild
+    - sm
+    singular: seammembership
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.category
-      name: Category
+    - jsonPath: .status.admitted
+      name: Admitted
+      type: boolean
+    - jsonPath: .spec.tier
+      name: Tier
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -27,9 +30,11 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          InfrastructurePackBuild is the seam-core CRD for compiler input specification.
-          Compiler reads this at compile time; never applied to a cluster as a live CR.
-          conductor-schema.md §7.
+          SeamMembership is the formal join declaration for an operator wishing to
+          become a member of the Seam infrastructure family. Guardian validates and
+          admits the membership after verifying the operator's RBACProfile. Operators
+          that are not members may not be allocated PermissionSnapshots.
+          Migrated from infrastructure.ontai.dev to seam.ontai.dev (MIGRATION-3.8).
         properties:
           apiVersion:
             description: |-
@@ -49,86 +54,58 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              InfrastructurePackBuildSpec defines the desired state of an InfrastructurePackBuild.
-              Compiler input specification. Read by the Compiler at compile time; never applied to a cluster as a CR.
-              conductor-schema.md §7.
+            description: SeamMembershipSpec defines the desired state of a SeamMembership.
             properties:
-              category:
-                allOf:
-                - enum:
-                  - helm
-                  - kustomize
-                  - raw
-                - enum:
-                  - helm
-                  - kustomize
-                  - raw
-                description: 'Category declares the compilation category. Must be
-                  one of: helm, kustomize, raw.'
+              appIdentityRef:
+                description: |-
+                  AppIdentityRef references the operator's application-layer identity.
+                  For Seam family operators this is the operator name (guardian, platform,
+                  wrapper, conductor, seam-core, vortex).
+                  Format: {name} -- references an AppIdentity in the domain-core (future)
+                  or the operator's service account name (current).
                 type: string
-              componentName:
-                description: ComponentName is the name of the component being compiled.
+              domainIdentityRef:
+                description: |-
+                  DomainIdentityRef references the DomainIdentity at core.ontai.dev
+                  that this operator traces to. Must match the domainIdentityRef on
+                  the operator's RBACProfile.
                 type: string
-              helmSource:
-                description: HelmSource describes the Helm chart source. Required
-                  when category=helm.
-                properties:
-                  chart:
-                    description: Chart is the chart name used for rendering context.
-                    type: string
-                  url:
-                    description: URL is the full URL to the Helm chart tarball (.tgz).
-                    type: string
-                  valuesFile:
-                    description: ValuesFile is the path to a YAML values file. Optional.
-                    type: string
-                  version:
-                    description: Version is the chart version string.
-                    type: string
-                required:
-                - chart
-                - url
-                - version
-                type: object
-              kustomizeSource:
-                description: KustomizeSource describes the Kustomize source. Required
-                  when category=kustomize.
-                properties:
-                  path:
-                    description: Path is the path to the kustomization root directory.
-                    type: string
-                required:
-                - path
-                type: object
-              rawSource:
-                description: RawSource describes the raw manifest source. Required
-                  when category=raw.
-                properties:
-                  path:
-                    description: Path is the path to the directory containing raw
-                      YAML manifests.
-                    type: string
-                required:
-                - path
-                type: object
-              targetClusters:
-                description: TargetClusters is the list of cluster names to which
-                  the compiled pack should be delivered.
-                items:
-                  type: string
-                type: array
+              principalRef:
+                description: |-
+                  PrincipalRef is the Kubernetes service account that this operator
+                  runs as. Format: system:serviceaccount:{namespace}:{name}
+                  Must match the principalRef on the operator's RBACProfile.
+                type: string
+              tier:
+                description: |-
+                  Tier declares the membership tier. Valid values: infrastructure, application.
+                  infrastructure: Seam family operators (guardian, platform, wrapper, etc.)
+                  application: Application operators (vortex, future app operators)
+                enum:
+                - infrastructure
+                - application
+                type: string
             required:
-            - category
-            - componentName
+            - appIdentityRef
+            - domainIdentityRef
+            - principalRef
+            - tier
             type: object
           status:
-            description: InfrastructurePackBuildStatus is the observed state of an
-              InfrastructurePackBuild.
+            description: SeamMembershipStatus defines the observed state of a SeamMembership.
             properties:
+              admitted:
+                description: Admitted is true when Guardian has validated and admitted
+                  this member.
+                type: boolean
+              admittedAt:
+                description: AdmittedAt is the timestamp when Guardian admitted this
+                  member.
+                format: date-time
+                type: string
               conditions:
                 description: Conditions is the list of status conditions for this
-                  PackBuild.
+                  SeamMembership.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -184,10 +161,14 @@ spec:
                   - type
                   type: object
                 type: array
-              observedGeneration:
-                description: ObservedGeneration is the generation most recently reconciled.
-                format: int64
-                type: integer
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              permissionSnapshotRef:
+                description: |-
+                  PermissionSnapshotRef is the name of the PermissionSnapshot Guardian
+                  resolved for this member. Set after admission.
+                type: string
             type: object
         type: object
     served: true

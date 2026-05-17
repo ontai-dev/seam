@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	idns "github.com/ontai-dev/seam-core/internal/dns"
+	idns "github.com/ontai-dev/seam/internal/dns"
 )
 
 // ── helpers ───────────────────────────────────────────────────────────────────

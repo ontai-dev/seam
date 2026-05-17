@@ -6,6 +6,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// LabelLineageRoot is the CRD metadata label key that marks a kind as a lineage
+// root declaration. The LineageController reads this label from the CRD object
+// in the API server to determine whether a reconciled CR should produce a new
+// LineageRecord. Only TalosCluster and PackDelivery CRDs carry this label.
+const LabelLineageRoot = "infrastructure.ontai.dev/lineage-root"
+
 // LabelRootILINamespace is the optional label key that carries the namespace
 // of the InfrastructureLineageIndex when it differs from the derived object's
 // namespace. DescendantReconciler reads this label and uses it for the ILI

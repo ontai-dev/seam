@@ -233,8 +233,8 @@ var vocabulary = map[string]map[string]struct{}{
 	ConditionTypeRBACProfileNotProvisioned: reasons(
 		ReasonRBACProfileNotReady,
 	),
-	ConditionTypeWrapperRunnerRBACNotReady: reasons(
-		ReasonWrapperRunnerRBACNotReady,
+	ConditionTypeDispatcherRunnerRBACNotReady: reasons(
+		ReasonDispatcherRunnerRBACNotReady,
 	),
 	ConditionTypePackExecutionFailed: reasons(
 		ReasonJobFailed,

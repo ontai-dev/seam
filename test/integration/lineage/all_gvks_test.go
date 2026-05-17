@@ -1,6 +1,6 @@
 // Package lineage_test contains integration tests for the seam-core
-// InfrastructureLineageController, verifying that all 9 registered root declaration
-// GVKs produce a correctly structured InfrastructureLineageIndex with the right
+// LineageController, verifying that all registered root declaration
+// GVKs produce a correctly structured LineageRecord with the right
 // rootBinding, governance annotation, and LineageSynced=True condition.
 //
 // Tests use controller-runtime's fake client — no live cluster or envtest required.
@@ -8,7 +8,7 @@
 // in controller.RootDeclarationGVKs, providing a regression guard against accidental
 // GVK removal or ILI naming drift.
 //
-// seam-core-schema.md §7. CLAUDE.md Decisions 1-6. Root invariant: 9 GVKs.
+// seam-core-schema.md §7. CLAUDE.md Decisions 1-6.
 package lineage_test
 
 import (
@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
-	"github.com/ontai-dev/seam-core/internal/controller"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
+	"github.com/ontai-dev/seam/internal/controller"
 )
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ func buildRootDeclaration(gvk schema.GroupVersionKind, name, namespace string) *
 			"type":               seamv1alpha1.ConditionTypeLineageSynced,
 			"status":             "False",
 			"reason":             "LineageControllerAbsent",
-			"message":            "InfrastructureLineageController is not yet deployed.",
+			"message":            "LineageController is not yet deployed.",
 			"lastTransitionTime": metav1.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		},
 	}, "status", "conditions")
@@ -71,6 +71,18 @@ func buildRootDeclaration(gvk schema.GroupVersionKind, name, namespace string) *
 // Format: {lowercasekind}-{name}. seam-core-schema.md §7.
 func expectedILIName(kind, name string) string {
 	return strings.ToLower(kind) + "-" + name
+}
+
+// buildRootLabeledCRD returns an unstructured CRD object for gvk carrying the
+// lineage-root label. Added to fake clients so IsRootDeclaration returns true.
+func buildRootLabeledCRD(gvk schema.GroupVersionKind) *unstructured.Unstructured {
+	crd := &unstructured.Unstructured{}
+	crd.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition",
+	})
+	crd.SetName(controller.CRDNameForGVK(gvk))
+	crd.SetLabels(map[string]string{"infrastructure.ontai.dev/lineage-root": "true"})
+	return crd
 }
 
 // reconcileGVK runs the LineageReconciler for the given GVK and root object.
@@ -109,8 +121,8 @@ func TestLineageController_AllGVKs_ProduceILIWithCorrectRootBinding(t *testing.T
 
 			c := fake.NewClientBuilder().
 				WithScheme(s).
-				WithObjects(root).
-				WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+				WithObjects(root, buildRootLabeledCRD(gvk)).
+				WithStatusSubresource(root, &seamv1alpha1.LineageRecord{}).
 				Build()
 			r := &controller.LineageReconciler{Client: c, Scheme: s, GVK: gvk}
 
@@ -120,7 +132,7 @@ func TestLineageController_AllGVKs_ProduceILIWithCorrectRootBinding(t *testing.T
 			}
 
 			iliName := expectedILIName(gvk.Kind, rootName)
-			ili := &seamv1alpha1.InfrastructureLineageIndex{}
+			ili := &seamv1alpha1.LineageRecord{}
 			if err := c.Get(context.Background(), client.ObjectKey{Name: iliName, Namespace: ns}, ili); err != nil {
 				t.Fatalf("ILI %s not created: %v", iliName, err)
 			}
@@ -165,8 +177,8 @@ func TestLineageController_AllGVKs_LineageSyncedTransitionsToTrue(t *testing.T) 
 
 			c := fake.NewClientBuilder().
 				WithScheme(s).
-				WithObjects(root).
-				WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+				WithObjects(root, buildRootLabeledCRD(gvk)).
+				WithStatusSubresource(root, &seamv1alpha1.LineageRecord{}).
 				Build()
 			r := &controller.LineageReconciler{Client: c, Scheme: s, GVK: gvk}
 
@@ -216,15 +228,15 @@ func TestLineageController_AllGVKs_ILINameFormat(t *testing.T) {
 
 			c := fake.NewClientBuilder().
 				WithScheme(s).
-				WithObjects(root).
-				WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+				WithObjects(root, buildRootLabeledCRD(gvk)).
+				WithStatusSubresource(root, &seamv1alpha1.LineageRecord{}).
 				Build()
 			r := &controller.LineageReconciler{Client: c, Scheme: s, GVK: gvk}
 
 			reconcileGVK(t, r, rootName, ns)
 
 			wantName := strings.ToLower(gvk.Kind) + "-" + rootName
-			ili := &seamv1alpha1.InfrastructureLineageIndex{}
+			ili := &seamv1alpha1.LineageRecord{}
 			if err := c.Get(context.Background(), client.ObjectKey{Name: wantName, Namespace: ns}, ili); err != nil {
 				t.Errorf("ILI with expected name %q not found: %v", wantName, err)
 			}
@@ -236,7 +248,7 @@ func TestLineageController_AllGVKs_ILINameFormat(t *testing.T) {
 // Guards against silent additions or removals. seam-core-schema.md §7.
 func TestLineageController_GVKCount(t *testing.T) {
 	// 1 platform infra + 10 platform operational + 2 platform CAPI +
-	// 3 wrapper + 5 guardian = 21
+	// 3 dispatcher + 5 guardian = 21
 	const expected = 21
 	if got := len(controller.RootDeclarationGVKs); got != expected {
 		t.Errorf("RootDeclarationGVKs count = %d, want %d", got, expected)

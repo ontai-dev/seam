@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ontai-dev/seam-core/pkg/conditions"
+	"github.com/ontai-dev/seam/pkg/conditions"
 )
 
 // TestValidateCondition_AcceptsKnownPairs verifies that every declared constant

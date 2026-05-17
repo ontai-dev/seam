@@ -24,19 +24,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	idns "github.com/ontai-dev/seam-core/internal/dns"
+	idns "github.com/ontai-dev/seam/internal/dns"
 )
 
 // categoryForKind maps a GVK kind to a DSNS record category constant.
 func categoryForKind(kind string) string {
 	switch kind {
-	case "InfrastructureTalosCluster", "SeamInfrastructureCluster", "SeamInfrastructureMachine":
+	case "TalosCluster", "SeamInfrastructureCluster", "SeamInfrastructureMachine":
 		return idns.RecordCategoryClusterTopology
 	case "IdentityBinding", "IdentityProvider":
 		return idns.RecordCategoryIdentityPlane
-	case "InfrastructurePackInstance", "InfrastructureClusterPack", "InfrastructurePackExecution":
+	case "PackInstalled", "PackDelivery", "PackExecution":
 		return idns.RecordCategoryPackLineage
-	case "InfrastructureRunnerConfig":
+	case "RunnerConfig":
 		return idns.RecordCategoryExecutionAuthority
 	default:
 		return idns.RecordCategoryClusterTopology
@@ -71,7 +71,7 @@ func recordStrings(records []idns.Record) []string {
 // severityForObject returns the DSNSEvent severity for an object based on its
 // current condition state. Degraded condition → warning; all other states → informational.
 func severityForObject(obj *unstructured.Unstructured, kind string) string {
-	if kind == "InfrastructureRunnerConfig" && hasConditionTrue(obj, "Degraded") {
+	if kind == "RunnerConfig" && hasConditionTrue(obj, "Degraded") {
 		return idns.SeverityWarning
 	}
 	return idns.SeverityInformational
@@ -120,21 +120,21 @@ const DSNSFinalizer = "dsns.infrastructure.ontai.dev/cleanup"
 // CRD state is projected to DNS records in seam.ontave.dev.
 // seam-core-schema.md §8 Decision 4.
 var DSNSGVKs = []schema.GroupVersionKind{
-	// Platform operator — InfrastructureTalosCluster Ready state → cluster A, api A, role TXT
-	// (or sovereign NS delegation for screen provider). Decision G.
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"},
+	// Platform operator — TalosCluster Ready state → cluster A, api A, role TXT
+	// (or sovereign NS delegation for screen provider). MIGRATION-3.1: seam.ontai.dev.
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"},
 
-	// Wrapper operator — InfrastructurePackInstance terminal Succeeded state → pack TXT. Decision G.
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"},
+	// Wrapper operator — PackInstalled terminal Succeeded state → pack TXT. Decision G.
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackInstalled"},
 
 	// Guardian operator — IdentityBinding resolved → identity TXT.
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
 
 	// Guardian operator — IdentityProvider Valid → idp TXT.
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
 
-	// Conductor — InfrastructureRunnerConfig terminal state → run TXT. Decision G.
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureRunnerConfig"},
+	// Conductor — RunnerConfig terminal state → run TXT. Decision G.
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "RunnerConfig"},
 }
 
 // DSNSReconciler watches a single GVK and projects CRD state to DNS records.
@@ -252,9 +252,9 @@ func (r *DSNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// TalosCluster: log the cluster name and Ready status before derivation to aid
 	// diagnosis when the cluster is Ready but records are not appearing in the zone.
 	// The reconciler watches all namespaces and requires Ready=True to emit records.
-	if r.GVK.Kind == "InfrastructureTalosCluster" {
+	if r.GVK.Kind == "TalosCluster" {
 		ready := hasConditionTrue(obj, "Ready")
-		logger.V(1).Info("reconciling InfrastructureTalosCluster DNS records",
+		logger.V(1).Info("reconciling TalosCluster DNS records",
 			"cluster", obj.GetName(), "namespace", obj.GetNamespace(), "ready", ready)
 	}
 	records := r.deriveRecords(obj)
@@ -273,15 +273,15 @@ func (r *DSNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 // seam-core-schema.md §8 Decision 4.
 func (r *DSNSReconciler) deriveRecords(obj *unstructured.Unstructured) []idns.Record {
 	switch r.GVK.Kind {
-	case "InfrastructureTalosCluster":
+	case "TalosCluster":
 		return deriveTalosClusterRecords(obj)
 	case "IdentityBinding":
 		return deriveIdentityBindingRecords(obj)
 	case "IdentityProvider":
 		return deriveIdentityProviderRecords(obj)
-	case "InfrastructurePackInstance":
+	case "PackInstalled":
 		return derivePackInstanceRecords(obj)
-	case "InfrastructureRunnerConfig":
+	case "RunnerConfig":
 		return deriveRunnerConfigRecords(obj)
 	default:
 		return nil

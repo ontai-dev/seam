@@ -1,6 +1,6 @@
 // Package e2e contains the seam-core end-to-end test suite.
 //
-// These tests verify the InfrastructureLineageIndex lifecycle and the
+// These tests verify the LineageRecord lifecycle and the
 // LineageController index management behaviour on a live cluster.
 //
 // Required environment variables:
@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	e2ehelpers "github.com/ontai-dev/seam-core/pkg/e2e"
+	e2ehelpers "github.com/ontai-dev/seam/pkg/e2e"
 )
 
 // Suite-level cluster clients, initialized in BeforeSuite.

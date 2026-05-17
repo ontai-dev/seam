@@ -11,18 +11,18 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/ontai-dev/seam-core/internal/controller"
-	idns "github.com/ontai-dev/seam-core/internal/dns"
+	"github.com/ontai-dev/seam/internal/controller"
+	idns "github.com/ontai-dev/seam/internal/dns"
 )
 
 // ── test helpers ──────────────────────────────────────────────────────────────
 
 var (
-	talosClusterGVK   = schema.GroupVersionKind{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"}
-	identityBindGVK   = schema.GroupVersionKind{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"}
-	identityProvGVK   = schema.GroupVersionKind{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"}
-	packInstanceGVK   = schema.GroupVersionKind{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"}
-	runnerConfigGVK   = schema.GroupVersionKind{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureRunnerConfig"}
+	talosClusterGVK   = schema.GroupVersionKind{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"}
+	identityBindGVK   = schema.GroupVersionKind{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"}
+	identityProvGVK   = schema.GroupVersionKind{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"}
+	packInstanceGVK   = schema.GroupVersionKind{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackInstalled"}
+	runnerConfigGVK   = schema.GroupVersionKind{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "RunnerConfig"}
 )
 
 func newUnstructured(gvk schema.GroupVersionKind, name, ns string) *unstructured.Unstructured {

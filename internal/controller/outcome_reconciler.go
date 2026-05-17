@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
 )
 
 // OutcomeReconciler watches derived object GVKs and appends OutcomeEntry records
@@ -65,7 +65,7 @@ func (r *OutcomeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if iliNamespace == "" {
 		iliNamespace = obj.GetNamespace()
 	}
-	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	ili := &seamv1alpha1.LineageRecord{}
 	iliKey := client.ObjectKey{Name: iliName, Namespace: iliNamespace}
 	if err := r.Client.Get(ctx, iliKey, ili); err != nil {
 		if apierrors.IsNotFound(err) {

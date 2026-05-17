@@ -3,10 +3,10 @@
 //
 // This file (rootbinding_immutability.go) contains only pure functions and
 // value types for the spec.rootBinding immutability gate on
-// InfrastructureLineageIndex. It has no imports from
+// LineageRecord. It has no imports from
 // sigs.k8s.io/controller-runtime/pkg/webhook.
 //
-// IMMUTABILITY CONTRACT: spec.rootBinding on InfrastructureLineageIndex is
+// IMMUTABILITY CONTRACT: spec.rootBinding on LineageRecord is
 // authored once at creation time and sealed permanently. The admission webhook
 // rejects any UPDATE request that modifies any field in spec.rootBinding.
 // seam-core-schema.md §3.1, domain-core-schema.md §2.1.
@@ -22,9 +22,9 @@ import (
 // admission webhook is registered in the Seam Core webhook server.
 const RootBindingWebhookPath = "/validate-lineage-index-immutability"
 
-// InfrastructureLineageIndexKind is the kind name for InfrastructureLineageIndex.
+// LineageRecordKind is the kind name for LineageRecord (formerly LineageRecord).
 // The immutability gate intercepts only this kind.
-const InfrastructureLineageIndexKind = "InfrastructureLineageIndex"
+const LineageRecordKind = "LineageRecord"
 
 // AdmissionOperation is the type of operation for an incoming admission request.
 type AdmissionOperation string
@@ -42,7 +42,7 @@ const (
 // It contains only the fields required for the immutability decision, decoupled
 // from any Kubernetes API machinery.
 type RootBindingImmutabilityRequest struct {
-	// Kind is the resource kind being admitted (e.g., "InfrastructureLineageIndex").
+	// Kind is the resource kind being admitted (e.g., "LineageRecord").
 	Kind string
 	// Operation is the admission operation type.
 	Operation AdmissionOperation
@@ -63,11 +63,11 @@ type RootBindingImmutabilityDecision struct {
 }
 
 // EvaluateRootBindingImmutability applies the spec.rootBinding immutability policy
-// to an incoming admission request for InfrastructureLineageIndex. It is a pure
+// to an incoming admission request for LineageRecord. It is a pure
 // function: no side effects, no Kubernetes API calls, no I/O.
 //
 // Evaluation order:
-//  1. If Kind is not InfrastructureLineageIndex, allow unconditionally.
+//  1. If Kind is not LineageRecord, allow unconditionally.
 //  2. If the operation is not UPDATE (CREATE, DELETE), allow unconditionally.
 //     rootBinding is authored at CREATE time. DELETE is always permitted.
 //  3. If old and new spec.rootBinding are semantically equal (both absent, or
@@ -75,7 +75,7 @@ type RootBindingImmutabilityDecision struct {
 //  4. Otherwise, reject — spec.rootBinding has been modified.
 //     seam-core-schema.md §3.1, domain-core-schema.md §2.1.
 func EvaluateRootBindingImmutability(req RootBindingImmutabilityRequest) RootBindingImmutabilityDecision {
-	if req.Kind != InfrastructureLineageIndexKind {
+	if req.Kind != LineageRecordKind {
 		return RootBindingImmutabilityDecision{Allowed: true}
 	}
 
@@ -94,8 +94,8 @@ func EvaluateRootBindingImmutability(req RootBindingImmutabilityRequest) RootBin
 				"the rootBinding section identifies the root declaration that anchors this "+
 				"lineage index and is sealed at admission — any field change is rejected "+
 				"(seam-core-schema.md §3.1, domain-core-schema.md §2.1); "+
-				"to record a different root binding, create a new InfrastructureLineageIndex",
-			InfrastructureLineageIndexKind,
+				"to record a different root binding, create a new LineageRecord",
+			LineageRecordKind,
 		),
 	}
 }

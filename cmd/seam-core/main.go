@@ -22,10 +22,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	ctrlwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
-	"github.com/ontai-dev/seam-core/internal/controller"
-	idns "github.com/ontai-dev/seam-core/internal/dns"
-	"github.com/ontai-dev/seam-core/internal/webhook"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
+	"github.com/ontai-dev/seam/internal/controller"
+	idns "github.com/ontai-dev/seam/internal/dns"
+	"github.com/ontai-dev/seam/internal/webhook"
 )
 
 var scheme = runtime.NewScheme()

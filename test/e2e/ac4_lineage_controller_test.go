@@ -2,16 +2,16 @@ package e2e_test
 
 // AC-4: LineageController manifest tracking acceptance contract.
 //
-// Scenario: After seam-core is installed on ccs-mgmt and the InfrastructureLineageController
-// is running, every root declaration CR must have exactly one InfrastructureLineageIndex
+// Scenario: After seam-core is installed on ccs-mgmt and the LineageController
+// is running, every root declaration CR must have exactly one LineageRecord
 // created with the correct rootBinding and governance annotation.
 //
-//   - Exactly one ILI per root declaration (Lineage Index Pattern)
-//   - ILI name is {lowercasekind}-{name}
+//   - Exactly one LineageRecord per root declaration (Lineage Index Pattern)
+//   - LineageRecord name is {lowercasekind}-{name}
 //   - governance.infrastructure.ontai.dev/lineage-index-ref set on root declaration
 //   - LineageSynced=True with reason LineageIndexCreated
 //   - DescendantRegistry starts empty
-//   - ILI is not deleted when root declaration is deleted (audit retention)
+//   - LineageRecord is not deleted when root declaration is deleted (audit retention)
 //
 // Promotion condition: requires live cluster with MGMT_KUBECONFIG and
 // TENANT-CLUSTER-E2E closed (ccs-dev onboarded as tenant cluster).
@@ -23,7 +23,7 @@ import (
 )
 
 var _ = Describe("AC-4: LineageController manifest tracking", func() {
-	It("InfrastructureLineageController creates one ILI per TalosCluster root declaration", func() {
+	It("LineageController creates one LineageRecord per TalosCluster root declaration", func() {
 		Skip("requires live cluster with MGMT_KUBECONFIG and TENANT-CLUSTER-E2E closed")
 	})
 

@@ -29,8 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
-	"github.com/ontai-dev/seam-core/pkg/lineage"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
+	"github.com/ontai-dev/seam/pkg/lineage"
 )
 
 // Label keys operators must set on derived objects to trigger descendant tracking.
@@ -46,8 +46,8 @@ const (
 // watches. Operators set LabelRootILI on objects of these kinds at creation time.
 // One DescendantReconciler instance is registered per GVK in main.go.
 var DerivedObjectGVKs = []schema.GroupVersionKind{
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureRunnerConfig"},
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"},
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "RunnerConfig"},
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackInstalled"},
 }
 
 // DescendantReconciler watches a single derived-object GVK and appends
@@ -89,7 +89,7 @@ func (r *DescendantReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Fetch the referenced ILI.
-	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	ili := &seamv1alpha1.LineageRecord{}
 	iliKey := client.ObjectKey{Name: iliName, Namespace: iliNamespace}
 	if err := r.Client.Get(ctx, iliKey, ili); err != nil {
 		if apierrors.IsNotFound(err) {

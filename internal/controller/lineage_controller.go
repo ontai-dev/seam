@@ -29,43 +29,42 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
+	lineagepkg "github.com/ontai-dev/seam/pkg/lineage"
 )
 
 // GovernanceAnnotationPrefix is the reserved governance sub-prefix under which
-// the InfrastructureLineageController writes annotations on root declaration CRs
-// and on InfrastructureLineageIndex instances. Individual Seam Operators are
+// the LineageController writes annotations on root declaration CRs
+// and on LineageRecord instances. Individual Seam Operators are
 // prohibited from writing under this sub-prefix. seam-core-schema.md §7 Declaration 4.
 const GovernanceAnnotationPrefix = "governance.infrastructure.ontai.dev"
 
 // GovernanceAnnotationLineageIndexRef is written on root declaration CRs to record
-// the name of the InfrastructureLineageIndex created for that declaration.
+// the name of the LineageRecord created for that declaration.
 const GovernanceAnnotationLineageIndexRef = GovernanceAnnotationPrefix + "/lineage-index-ref"
 
-// GovernanceAnnotationControllerAuthored is written on InfrastructureLineageIndex
-// instances to assert controller-authorship per CLAUDE.md §14 Decision 3.
+// GovernanceAnnotationControllerAuthored is written on LineageRecord
+// instances to assert controller-authorship per CLAUDE.md Decision 3.
 const GovernanceAnnotationControllerAuthored = GovernanceAnnotationPrefix + "/controller-authored"
 
 // ReasonLineageIndexCreated is the reason set on the LineageSynced condition when
-// the InfrastructureLineageController successfully creates an ILI for the root declaration.
+// the LineageController successfully creates a LineageRecord for the root declaration.
 const ReasonLineageIndexCreated = "LineageIndexCreated"
 
 // InfrastructureDomainRef is the canonical domainRef value for all Seam infrastructure
-// ILIs. It is the {name}.{group} reference to the DomainLineageIndex at core.ontai.dev
-// that the InfrastructureLineageIndex instantiates. All infrastructure ILIs trace to
-// this single domain root. CLAUDE.md §14 Decision 2.
+// LineageRecords. CLAUDE.md Decision 2.
 const InfrastructureDomainRef = "infrastructure.core.ontai.dev"
 
 // RootDeclarationGVK names all root-declaration CRD GroupVersionKinds that the
-// InfrastructureLineageController watches. One InfrastructureLineageIndex is created
-// per observed instance of any of these kinds.
+// LineageController watches. One LineageRecord is created per observed instance
+// of any of these kinds.
 //
-// CLAUDE.md §14 Decision 4 — one index per root declaration across all operators.
+// CLAUDE.md Decision 4 -- one record per root declaration across all operators.
 var RootDeclarationGVKs = []schema.GroupVersionKind{
-	// Platform operator — infrastructure.ontai.dev (Decision G)
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"},
+	// Platform operator -- seam.ontai.dev (MIGRATION-3.1)
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"},
 
-	// Platform operator — platform.ontai.dev (operational root declarations)
+	// Platform operator -- platform.ontai.dev (operational root declarations)
 	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "UpgradePolicy"},
 	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "NodeMaintenance"},
 	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "ClusterMaintenance"},
@@ -77,21 +76,21 @@ var RootDeclarationGVKs = []schema.GroupVersionKind{
 	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigRestore"},
 	{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "HardeningProfile"},
 
-	// Platform CAPI provider — infrastructure.ontai.dev
+	// Platform CAPI provider -- infrastructure.ontai.dev
 	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureCluster"},
 	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureMachine"},
 
-	// Wrapper operator — infrastructure.ontai.dev (Decision G)
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureClusterPack"},
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackExecution"},
-	{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"},
+	// Dispatcher operator -- seam.ontai.dev (MIGRATION-3.3-3.7)
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackDelivery"},
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackExecution"},
+	{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackInstalled"},
 
-	// Guardian operator — security.ontai.dev
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "RBACPolicy"},
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "RBACProfile"},
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
-	{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "PermissionSet"},
+	// Guardian operator -- guardian.ontai.dev (constitutional refactor 2026-05-12)
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "RBACPolicy"},
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "RBACProfile"},
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
+	{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "PermissionSet"},
 }
 
 // LineageReconciler watches a single root-declaration GVK and reconciles
@@ -131,13 +130,26 @@ func (r *LineageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("failed to get %s %s: %w", r.GVK.Kind, req.NamespacedName, err)
 	}
 
+	// Step A1 -- Check the lineage-root CRD label. Only GVKs whose CRD carries
+	// infrastructure.ontai.dev/lineage-root="true" produce a new LineageRecord.
+	// All other GVKs are derived objects; they are forwarded to handleDerivedObject
+	// which resolves the nearest root via ownerReferences.
+	isRoot, err := IsRootDeclaration(ctx, r.Client, r.GVK)
+	if err != nil {
+		logger.Error(err, "CRD lineage-root label check failed — treating as non-root; requeuing")
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if !isRoot {
+		return r.handleDerivedObject(ctx, root)
+	}
+
 	// Step B — Check idempotency guard: governance annotation already set means
 	// this root declaration has already been processed. Verify ILI exists and return.
 	iliName := lineageIndexName(r.GVK.Kind, root.GetName())
 	if existing, ok := root.GetAnnotations()[GovernanceAnnotationLineageIndexRef]; ok && existing == iliName {
 		// Idempotency guard: annotation already set with the correct ILI name.
 		// Verify the ILI still exists; if not, re-create it.
-		ili := &seamv1alpha1.InfrastructureLineageIndex{}
+		ili := &seamv1alpha1.LineageRecord{}
 		err := r.Client.Get(ctx, client.ObjectKey{Name: iliName, Namespace: root.GetNamespace()}, ili)
 		if err == nil {
 			// ILI exists and annotation is set — ensure LineageSynced=True.
@@ -152,7 +164,7 @@ func (r *LineageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Step C — Get or create the InfrastructureLineageIndex.
-	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	ili := &seamv1alpha1.LineageRecord{}
 	iliKey := client.ObjectKey{Name: iliName, Namespace: root.GetNamespace()}
 	if err := r.Client.Get(ctx, iliKey, ili); err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -216,13 +228,13 @@ func (r *LineageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // root declaration and populates rootBinding.declaringPrincipal. If the annotation
 // is absent (bootstrap window or pre-amendment object), declaringPrincipal is set
 // to "system:unknown". seam-core-schema.md §7 Declaration 6.
-func (r *LineageReconciler) buildILI(root *unstructured.Unstructured, iliName string) *seamv1alpha1.InfrastructureLineageIndex {
+func (r *LineageReconciler) buildILI(root *unstructured.Unstructured, iliName string) *seamv1alpha1.LineageRecord {
 	declaringPrincipal := root.GetAnnotations()["infrastructure.ontai.dev/declaring-principal"]
 	if declaringPrincipal == "" {
 		declaringPrincipal = "system:unknown"
 	}
 
-	return &seamv1alpha1.InfrastructureLineageIndex{
+	return &seamv1alpha1.LineageRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      iliName,
 			Namespace: root.GetNamespace(),
@@ -239,8 +251,8 @@ func (r *LineageReconciler) buildILI(root *unstructured.Unstructured, iliName st
 				"infrastructure.ontai.dev/root-name": root.GetName(),
 			},
 		},
-		Spec: seamv1alpha1.InfrastructureLineageIndexSpec{
-			RootBinding: seamv1alpha1.InfrastructureLineageIndexRootBinding{
+		Spec: seamv1alpha1.LineageRecordSpec{
+			RootBinding: seamv1alpha1.LineageRecordRootBinding{
 				RootKind:               r.GVK.Kind,
 				RootName:               root.GetName(),
 				RootNamespace:          root.GetNamespace(),
@@ -356,7 +368,7 @@ const defaultDescendantRetentionDays = 30
 //
 // A nil CreatedAt timestamp means the entry predates retention tracking — the entry
 // is never pruned to preserve backward compatibility.
-func (r *LineageReconciler) pruneStaleDescendants(ctx context.Context, ili *seamv1alpha1.InfrastructureLineageIndex) error {
+func (r *LineageReconciler) pruneStaleDescendants(ctx context.Context, ili *seamv1alpha1.LineageRecord) error {
 	if len(ili.Spec.DescendantRegistry) == 0 {
 		return nil
 	}
@@ -426,7 +438,7 @@ func (r *LineageReconciler) pruneStaleDescendants(ctx context.Context, ili *seam
 // declaration is deleted.
 //
 // The ownerReference is idempotent — if it is already set, no patch is issued.
-func (r *LineageReconciler) ensureOwnerReferenceIfDeleteWithRoot(ctx context.Context, root *unstructured.Unstructured, ili *seamv1alpha1.InfrastructureLineageIndex) error {
+func (r *LineageReconciler) ensureOwnerReferenceIfDeleteWithRoot(ctx context.Context, root *unstructured.Unstructured, ili *seamv1alpha1.LineageRecord) error {
 	deleteWithRoot := true // default per RetentionPolicy
 	if ili.Spec.RetentionPolicy != nil {
 		deleteWithRoot = ili.Spec.RetentionPolicy.DeleteWithRoot
@@ -457,6 +469,157 @@ func (r *LineageReconciler) ensureOwnerReferenceIfDeleteWithRoot(ctx context.Con
 	patch := client.MergeFrom(ili.DeepCopy())
 	ili.SetOwnerReferences(append(ili.GetOwnerReferences(), ownerRef))
 	return r.Client.Patch(ctx, ili, patch)
+}
+
+// CRDNameForGVK returns the CRD object name for a GVK using the standard plural convention:
+//   - lowercase kind
+//   - trailing 'y' replaced with 'ies'
+//   - 's' appended otherwise
+//   - suffixed with "." + group
+func CRDNameForGVK(gvk schema.GroupVersionKind) string {
+	kind := strings.ToLower(gvk.Kind)
+	var plural string
+	switch {
+	case strings.HasSuffix(kind, "y"):
+		plural = kind[:len(kind)-1] + "ies"
+	case strings.HasSuffix(kind, "s"):
+		plural = kind + "es"
+	default:
+		plural = kind + "s"
+	}
+	return plural + "." + gvk.Group
+}
+
+// IsRootDeclaration reports whether the CRD for gvk carries the lineage-root label
+// (infrastructure.ontai.dev/lineage-root="true"). Returns false (not an error) when
+// the CRD object is not found in the API server.
+func IsRootDeclaration(ctx context.Context, c client.Client, gvk schema.GroupVersionKind) (bool, error) {
+	crdName := CRDNameForGVK(gvk)
+	crd := &unstructured.Unstructured{}
+	crd.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apiextensions.k8s.io",
+		Version: "v1",
+		Kind:    "CustomResourceDefinition",
+	})
+	if err := c.Get(ctx, client.ObjectKey{Name: crdName}, crd); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("get CRD %s: %w", crdName, err)
+	}
+	labels, _, _ := unstructured.NestedStringMap(crd.Object, "metadata", "labels")
+	return labels[lineagepkg.LabelLineageRoot] == "true", nil
+}
+
+// ResolveRootOwner walks ownerReferences from obj up to maxHops to find an owner
+// whose GVK CRD carries the lineage-root label. Returns nil, nil when no root
+// owner is found within maxHops.
+func ResolveRootOwner(ctx context.Context, c client.Client, obj *unstructured.Unstructured, maxHops int) (*unstructured.Unstructured, error) {
+	current := obj
+	for hop := 0; hop < maxHops; hop++ {
+		refs := current.GetOwnerReferences()
+		if len(refs) == 0 {
+			return nil, nil
+		}
+		// Prefer the controller ownerRef; fall back to the first ref.
+		ref := refs[0]
+		for _, r := range refs {
+			if r.Controller != nil && *r.Controller {
+				ref = r
+				break
+			}
+		}
+		gv, err := schema.ParseGroupVersion(ref.APIVersion)
+		if err != nil {
+			return nil, fmt.Errorf("parse ownerRef APIVersion %q: %w", ref.APIVersion, err)
+		}
+		ownerGVK := gv.WithKind(ref.Kind)
+
+		isRoot, err := IsRootDeclaration(ctx, c, ownerGVK)
+		if err != nil {
+			return nil, fmt.Errorf("CRD check for owner %v: %w", ownerGVK, err)
+		}
+
+		owner := &unstructured.Unstructured{}
+		owner.SetGroupVersionKind(ownerGVK)
+		if err := c.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: current.GetNamespace()}, owner); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("get owner %s %s: %w", ref.Kind, ref.Name, err)
+		}
+
+		if isRoot {
+			return owner, nil
+		}
+		current = owner
+	}
+	return nil, nil
+}
+
+// handleDerivedObject is called when the reconciled GVK is not a lineage root.
+// It walks ownerReferences to find the nearest root and appends a DescendantEntry
+// to that root's LineageRecord. If no root is found within 3 hops, a warning is
+// logged and the object is requeued.
+func (r *LineageReconciler) handleDerivedObject(ctx context.Context, obj *unstructured.Unstructured) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithValues("gvk", r.GVK.String(), "name", obj.GetName())
+
+	root, err := ResolveRootOwner(ctx, r.Client, obj, 3)
+	if err != nil {
+		logger.Error(err, "ownerRef walk failed — requeuing")
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if root == nil {
+		logger.Info("no lineage-root owner found within 3 ownerRef hops — requeuing",
+			"namespace", obj.GetNamespace())
+		return ctrl.Result{RequeueAfter: 5 * time.Minute}, nil
+	}
+
+	iliName := lineageIndexName(root.GroupVersionKind().Kind, root.GetName())
+	ili := &seamv1alpha1.LineageRecord{}
+	if err := r.Client.Get(ctx, client.ObjectKey{Name: iliName, Namespace: root.GetNamespace()}, ili); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+		return ctrl.Result{}, fmt.Errorf("get LineageRecord %s: %w", iliName, err)
+	}
+
+	// Idempotency: skip if entry for this UID already exists.
+	objUID := obj.GetUID()
+	for _, entry := range ili.Spec.DescendantRegistry {
+		if entry.UID == objUID {
+			return ctrl.Result{}, nil
+		}
+	}
+
+	labels := obj.GetLabels()
+	seamOperator := labels["infrastructure.ontai.dev/seam-operator"]
+	if seamOperator == "" {
+		seamOperator = "unknown"
+	}
+	rationaleStr := labels["infrastructure.ontai.dev/creation-rationale"]
+	if rationaleStr == "" {
+		rationaleStr = string(lineagepkg.ClusterProvision)
+	}
+	now := metav1.Now()
+	entry := seamv1alpha1.DescendantEntry{
+		Group:                    r.GVK.Group,
+		Version:                  r.GVK.Version,
+		Kind:                     r.GVK.Kind,
+		Name:                     obj.GetName(),
+		Namespace:                obj.GetNamespace(),
+		UID:                      objUID,
+		SeamOperator:             seamOperator,
+		CreationRationale:        lineagepkg.CreationRationale(rationaleStr),
+		RootGenerationAtCreation: root.GetGeneration(),
+		CreatedAt:                &now,
+	}
+
+	patch := client.MergeFrom(ili.DeepCopy())
+	ili.Spec.DescendantRegistry = append(ili.Spec.DescendantRegistry, entry)
+	logger.Info("appended DescendantEntry to LineageRecord",
+		"iliName", iliName, "rootKind", root.GroupVersionKind().Kind, "rootName", root.GetName())
+	return ctrl.Result{}, r.Client.Patch(ctx, ili, patch)
 }
 
 // lineageIndexName returns the deterministic InfrastructureLineageIndex name for

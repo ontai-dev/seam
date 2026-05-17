@@ -2,14 +2,14 @@ package unit_test
 
 // AC-4: LineageController manifest tracking acceptance contract.
 //
-// AC-4: When a root declaration CR is created, the InfrastructureLineageController
+// AC-4: When a root declaration CR is created, the LineageController
 // must:
-//   - Create exactly one InfrastructureLineageIndex with the deterministic name
+//   - Create exactly one LineageRecord with the deterministic name
 //     {lowercasekind}-{name} in the same namespace as the root declaration.
 //   - Set governance.infrastructure.ontai.dev/lineage-index-ref annotation on the root.
 //   - Transition LineageSynced from False/LineageControllerAbsent to True/LineageIndexCreated.
 //   - Initialize DescendantRegistry as nil (empty at creation).
-//   - Be idempotent: a second reconcile must not create a duplicate ILI.
+//   - Be idempotent: a second reconcile must not create a duplicate LineageRecord.
 //   - Cover all 9 root declaration GVKs registered in RootDeclarationGVKs.
 //
 // These tests constitute the acceptance contract gate for AC-4.
@@ -24,9 +24,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
-	"github.com/ontai-dev/seam-core/internal/controller"
-	seamconditions "github.com/ontai-dev/seam-core/pkg/conditions"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
+	"github.com/ontai-dev/seam/internal/controller"
+	seamconditions "github.com/ontai-dev/seam/pkg/conditions"
 )
 
 // buildAC4ReconcilerWithClient returns a reconciler and the fake client.
@@ -35,8 +35,8 @@ func buildAC4ReconcilerWithClient(t *testing.T, gvk schema.GroupVersionKind, roo
 	s := newTestScheme(t)
 	c := fake.NewClientBuilder().
 		WithScheme(s).
-		WithObjects(root).
-		WithStatusSubresource(root, &seamv1alpha1.InfrastructureLineageIndex{}).
+		WithObjects(root, newCRDObject(gvk, true)).
+		WithStatusSubresource(root, &seamv1alpha1.LineageRecord{}).
 		Build()
 	return &controller.LineageReconciler{
 		Client: c,
@@ -46,24 +46,24 @@ func buildAC4ReconcilerWithClient(t *testing.T, gvk schema.GroupVersionKind, roo
 }
 
 // TestAC4_LineageReconciler_CreatesILIWithDeterministicName verifies that reconciling
-// a root declaration creates an InfrastructureLineageIndex named {lowercasekind}-{name}
+// a root declaration creates a LineageRecord named {lowercasekind}-{name}
 // in the same namespace, with rootBinding populated correctly.
-// AC-4 gate: ILI creation and naming contract. CLAUDE.md §14 Decision 4.
+// AC-4 gate: LineageRecord creation and naming contract. CLAUDE.md §14 Decision 4.
 func TestAC4_LineageReconciler_CreatesILIWithDeterministicName(t *testing.T) {
 	root := newRootDeclaration(talosClusterGVK, "prod-cluster", "seam-system")
 	r, c := buildAC4ReconcilerWithClient(t, talosClusterGVK, root)
 
 	reconcileRoot(t, r, "prod-cluster", "seam-system")
 
-	ili := &seamv1alpha1.InfrastructureLineageIndex{}
+	ili := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{
-		Name:      "infrastructuretaloscluster-prod-cluster",
+		Name:      "taloscluster-prod-cluster",
 		Namespace: "seam-system",
 	}, ili); err != nil {
-		t.Fatalf("AC-4: InfrastructureLineageIndex infrastructuretaloscluster-prod-cluster not found: %v", err)
+		t.Fatalf("AC-4: LineageRecord taloscluster-prod-cluster not found: %v", err)
 	}
-	if ili.Spec.RootBinding.RootKind != "InfrastructureTalosCluster" {
-		t.Errorf("AC-4: ILI rootBinding.rootKind = %q, want InfrastructureTalosCluster", ili.Spec.RootBinding.RootKind)
+	if ili.Spec.RootBinding.RootKind != "TalosCluster" {
+		t.Errorf("AC-4: ILI rootBinding.rootKind = %q, want TalosCluster", ili.Spec.RootBinding.RootKind)
 	}
 	if ili.Spec.RootBinding.RootName != "prod-cluster" {
 		t.Errorf("AC-4: ILI rootBinding.rootName = %q, want prod-cluster", ili.Spec.RootBinding.RootName)
@@ -123,7 +123,7 @@ func TestAC4_LineageReconciler_TransitionsLineageSyncedToTrue(t *testing.T) {
 // TestAC4_LineageReconciler_GovernanceAnnotationOnRoot verifies that the
 // governance.infrastructure.ontai.dev/lineage-index-ref annotation is written
 // onto the root declaration after reconcile. This annotation is the controller's
-// idempotency guard and the cross-object reference to the ILI.
+// idempotency guard and the cross-object reference to the LineageRecord.
 // AC-4 gate: governance annotation contract. CLAUDE.md §14 Decision 3.
 func TestAC4_LineageReconciler_GovernanceAnnotationOnRoot(t *testing.T) {
 	root := newRootDeclaration(rbacPolicyGVK, "platform-policy", "seam-system")
@@ -143,7 +143,7 @@ func TestAC4_LineageReconciler_GovernanceAnnotationOnRoot(t *testing.T) {
 }
 
 // TestAC4_LineageReconciler_Idempotent verifies that a second reconcile does not
-// create a duplicate ILI. The total ILI count in the namespace must be exactly 1
+// create a duplicate LineageRecord. The total LineageRecord count in the namespace must be exactly 1
 // after two reconcile calls. CLAUDE.md §14 Decision 4.
 // AC-4 gate: idempotency contract.
 func TestAC4_LineageReconciler_Idempotent(t *testing.T) {
@@ -153,7 +153,7 @@ func TestAC4_LineageReconciler_Idempotent(t *testing.T) {
 	reconcileRoot(t, r, "exec-001", "infra-system")
 	reconcileRoot(t, r, "exec-001", "infra-system")
 
-	iliList := &seamv1alpha1.InfrastructureLineageIndexList{}
+	iliList := &seamv1alpha1.LineageRecordList{}
 	if err := c.List(context.Background(), iliList, client.InNamespace("infra-system")); err != nil {
 		t.Fatalf("AC-4: list ILIs: %v", err)
 	}
@@ -168,9 +168,9 @@ func TestAC4_LineageReconciler_Idempotent(t *testing.T) {
 // AC-4 gate: GVK coverage contract. seam-core-schema.md §3.
 func TestAC4_AllNineRootDeclarationGVKsAreRegistered(t *testing.T) {
 	required := []schema.GroupVersionKind{
-		// Platform — infrastructure.ontai.dev (Decision G)
-		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureTalosCluster"},
-		// Platform operational — platform.ontai.dev
+		// Platform -- seam.ontai.dev (MIGRATION-3.1)
+		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "TalosCluster"},
+		// Platform operational -- platform.ontai.dev
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "UpgradePolicy"},
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "NodeMaintenance"},
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "ClusterMaintenance"},
@@ -181,19 +181,19 @@ func TestAC4_AllNineRootDeclarationGVKsAreRegistered(t *testing.T) {
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigBackup"},
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "TalosMachineConfigRestore"},
 		{Group: "platform.ontai.dev", Version: "v1alpha1", Kind: "HardeningProfile"},
-		// Platform CAPI provider — infrastructure.ontai.dev
+		// Platform CAPI provider -- infrastructure.ontai.dev
 		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureCluster"},
 		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "SeamInfrastructureMachine"},
-		// Wrapper — infrastructure.ontai.dev (Decision G)
-		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructureClusterPack"},
-		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackExecution"},
-		{Group: "infrastructure.ontai.dev", Version: "v1alpha1", Kind: "InfrastructurePackInstance"},
-		// Guardian
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "RBACPolicy"},
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "RBACProfile"},
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
-		{Group: "security.ontai.dev", Version: "v1alpha1", Kind: "PermissionSet"},
+		// Dispatcher -- seam.ontai.dev (MIGRATION-3.3-3.7)
+		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackDelivery"},
+		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackExecution"},
+		{Group: "seam.ontai.dev", Version: "v1alpha1", Kind: "PackInstalled"},
+		// Guardian -- guardian.ontai.dev (constitutional refactor 2026-05-12)
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "RBACPolicy"},
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "RBACProfile"},
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityBinding"},
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "IdentityProvider"},
+		{Group: "guardian.ontai.dev", Version: "v1alpha1", Kind: "PermissionSet"},
 	}
 
 	if len(controller.RootDeclarationGVKs) != len(required) {

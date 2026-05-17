@@ -12,15 +12,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	seamv1alpha1 "github.com/ontai-dev/seam-core/api/v1alpha1"
-	"github.com/ontai-dev/seam-core/internal/controller"
-	"github.com/ontai-dev/seam-core/pkg/lineage"
+	seamv1alpha1 "github.com/ontai-dev/seam/api/v1alpha1"
+	"github.com/ontai-dev/seam/internal/controller"
+	"github.com/ontai-dev/seam/pkg/lineage"
 )
 
 var runnerConfigGVK = schema.GroupVersionKind{
-	Group:   "infrastructure.ontai.dev",
+	Group:   "seam.ontai.dev",
 	Version: "v1alpha1",
-	Kind:    "InfrastructureRunnerConfig",
+	Kind:    "RunnerConfig",
 }
 
 // newRunnerConfig builds a minimal unstructured RunnerConfig with descendant labels.
@@ -60,15 +60,15 @@ func newRunnerConfigCrossNS(name, rcNamespace, iliName, iliNamespace string) *un
 }
 
 // newILIForDescendant builds a pre-existing ILI with nil DescendantRegistry.
-func newILIForDescendant(t *testing.T, name, namespace string) *seamv1alpha1.InfrastructureLineageIndex {
+func newILIForDescendant(t *testing.T, name, namespace string) *seamv1alpha1.LineageRecord {
 	t.Helper()
-	return &seamv1alpha1.InfrastructureLineageIndex{
+	return &seamv1alpha1.LineageRecord{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: seamv1alpha1.InfrastructureLineageIndexSpec{
-			RootBinding: seamv1alpha1.InfrastructureLineageIndexRootBinding{
+		Spec: seamv1alpha1.LineageRecordSpec{
+			RootBinding: seamv1alpha1.LineageRecordRootBinding{
 				RootKind:      "TalosCluster",
 				RootName:      "prod-cluster",
 				RootNamespace: namespace,
@@ -113,7 +113,7 @@ func TestDescendantReconciler_AppendsEntryToILI(t *testing.T) {
 		t.Errorf("expected no requeue")
 	}
 
-	got := &seamv1alpha1.InfrastructureLineageIndex{}
+	got := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{Name: iliName, Namespace: ns}, got); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
@@ -122,8 +122,8 @@ func TestDescendantReconciler_AppendsEntryToILI(t *testing.T) {
 	}
 
 	entry := got.Spec.DescendantRegistry[0]
-	if entry.Kind != "InfrastructureRunnerConfig" {
-		t.Errorf("entry.Kind = %q, want InfrastructureRunnerConfig", entry.Kind)
+	if entry.Kind != "RunnerConfig" {
+		t.Errorf("entry.Kind = %q, want RunnerConfig", entry.Kind)
 	}
 	if entry.Name != "rc-etcd-001" {
 		t.Errorf("entry.Name = %q, want rc-etcd-001", entry.Name)
@@ -162,7 +162,7 @@ func TestDescendantReconciler_Idempotent(t *testing.T) {
 		t.Fatalf("second Reconcile error: %v", err)
 	}
 
-	got := &seamv1alpha1.InfrastructureLineageIndex{}
+	got := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{Name: iliName, Namespace: ns}, got); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestDescendantReconciler_CrossNamespaceILI(t *testing.T) {
 		t.Errorf("expected no requeue: ILI should be found via cross-namespace label, RequeueAfter=%s", result.RequeueAfter)
 	}
 
-	got := &seamv1alpha1.InfrastructureLineageIndex{}
+	got := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(),
 		client.ObjectKey{Name: iliName, Namespace: iliNamespace}, got); err != nil {
 		t.Fatalf("get ILI in seam-system: %v", err)
@@ -239,7 +239,7 @@ func TestDescendantReconciler_NoOpWhenLabelAbsent(t *testing.T) {
 		t.Fatalf("Reconcile error: %v", err)
 	}
 
-	got := &seamv1alpha1.InfrastructureLineageIndex{}
+	got := &seamv1alpha1.LineageRecord{}
 	if err := c.Get(context.Background(), client.ObjectKey{Name: iliName, Namespace: ns}, got); err != nil {
 		t.Fatalf("get ILI: %v", err)
 	}

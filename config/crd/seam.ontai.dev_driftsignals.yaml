@@ -4,24 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
-  name: infrastructurepackinstances.infrastructure.ontai.dev
+  name: driftsignals.seam.ontai.dev
 spec:
-  group: infrastructure.ontai.dev
+  group: seam.ontai.dev
   names:
-    kind: InfrastructurePackInstance
-    listKind: InfrastructurePackInstanceList
-    plural: infrastructurepackinstances
+    kind: DriftSignal
+    listKind: DriftSignalList
+    plural: driftsignals
     shortNames:
-    - ipi
-    singular: infrastructurepackinstance
+    - ds
+    singular: driftsignal
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.clusterPackRef
-      name: Pack
+    - jsonPath: .spec.state
+      name: State
       type: string
-    - jsonPath: .spec.targetClusterRef
-      name: Target
+    - jsonPath: .spec.correlationID
+      name: CorrelationID
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -30,8 +30,11 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          InfrastructurePackInstance is the seam-core CRD recording the delivered state of a pack on a cluster.
-          wrapper-schema.md §3.
+          DriftSignal is the seam-core CRD for the three-state drift acknowledgement chain.
+          Written by conductor role=tenant; acknowledged by conductor role=management.
+          Decision I. At-least-once delivery. Human-at-Boundary invariant enforced via
+          configurable escalation threshold and TerminalDrift Condition. conductor-schema.md.
+          Migrated from infrastructure.ontai.dev to seam.ontai.dev (MIGRATION-3.8).
         properties:
           apiVersion:
             description: |-
@@ -52,68 +55,87 @@ spec:
             type: object
           spec:
             description: |-
-              InfrastructurePackInstanceSpec defines the desired state of an InfrastructurePackInstance.
-              wrapper-schema.md §3.
+              DriftSignalSpec defines the observed drift event written by conductor role=tenant.
+              Decision I. conductor-schema.md.
             properties:
-              chartName:
-                description: ChartName is the Helm chart name. Carried from ClusterPack.
-                type: string
-              chartURL:
-                description: ChartURL is the Helm chart repository URL. Carried from
-                  ClusterPack.
-                type: string
-              chartVersion:
-                description: ChartVersion is the Helm chart version for this instance.
-                  Carried from ClusterPack.
-                type: string
-              clusterPackRef:
-                description: ClusterPackRef is the name of the ClusterPack CR this
-                  instance tracks.
-                type: string
-              dependencyPolicy:
-                description: DependencyPolicy defines behavior when a dependency reports
+              affectedCRRef:
+                description: AffectedCRRef is a typed reference to the CR that exhibited
                   drift.
                 properties:
-                  onDrift:
-                    default: Warn
-                    description: |-
-                      OnDrift controls how this PackInstance responds when a declared dependency
-                      PackInstance reports Drifted=True.
-                    enum:
-                    - Block
-                    - Warn
-                    - Ignore
+                  group:
+                    description: Group is the API group of the drifted CR.
                     type: string
+                  kind:
+                    description: Kind is the Kind of the drifted CR.
+                    type: string
+                  name:
+                    description: Name is the name of the drifted CR.
+                    type: string
+                  namespace:
+                    description: Namespace is the namespace of the drifted CR. Empty
+                      for cluster-scoped resources.
+                    type: string
+                required:
+                - group
+                - kind
+                - name
                 type: object
-              dependsOn:
-                description: DependsOn is the list of pack base names that must be
-                  Delivered before this instance.
-                items:
-                  type: string
-                type: array
-              helmVersion:
-                description: HelmVersion is the Helm SDK version used to render the
-                  pack. Carried from ClusterPack.
+              correctionJobRef:
+                description: |-
+                  CorrectionJobRef is the name of the corrective Job created by the management cluster.
+                  Populated when state transitions to queued.
                 type: string
-              targetClusterRef:
-                description: TargetClusterRef is the name of the target cluster this
-                  instance is installed on.
+              correlationID:
+                description: |-
+                  CorrelationID is a unique identifier for this drift event, used to deduplicate
+                  signals across federation retries. Format: UUID v4.
                 type: string
-              version:
-                description: Version is the pack version delivered to the target cluster.
+              driftReason:
+                description: DriftReason is a human-readable description of why drift
+                  was detected.
+                type: string
+              escalationCounter:
+                description: |-
+                  EscalationCounter is the number of times this signal has been re-emitted without
+                  acknowledgement. Incremented by conductor role=tenant on each re-emit cycle.
+                  When this counter reaches the configurable escalation threshold, conductor writes a
+                  type=TerminalDrift Condition on the affected CR and stops re-emitting. Decision I.
+                format: int32
+                type: integer
+              observedAt:
+                description: ObservedAt is the time the drift was first observed by
+                  conductor role=tenant.
+                format: date-time
+                type: string
+              state:
+                allOf:
+                - enum:
+                  - pending
+                  - delivered
+                  - queued
+                  - confirmed
+                - enum:
+                  - pending
+                  - delivered
+                  - queued
+                  - confirmed
+                description: State is the current acknowledgement state of this drift
+                  signal. Decision I.
                 type: string
             required:
-            - clusterPackRef
-            - targetClusterRef
-            - version
+            - affectedCRRef
+            - correlationID
+            - driftReason
+            - observedAt
+            - state
             type: object
           status:
-            description: InfrastructurePackInstanceStatus is the observed state of
-              an InfrastructurePackInstance.
+            description: DriftSignalStatus is the observed state of a DriftSignal.
+              Written by conductor role=management.
             properties:
               conditions:
                 description: Conditions is the list of status conditions for this
-                  PackInstance.
+                  DriftSignal.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -169,60 +191,10 @@ spec:
                   - type
                   type: object
                 type: array
-              deliveredAt:
-                description: DeliveredAt records when the pack was most recently confirmed
-                  delivered.
-                format: date-time
-                type: string
-              deployedResources:
-                description: |-
-                  DeployedResources is the list of Kubernetes resources applied by the pack-deploy job.
-                  Used by the PackInstance deletion handler for cleanup.
-                items:
-                  description: |-
-                    InfrastructureDeployedResourceRef records a single Kubernetes resource applied
-                    by the pack-deploy job. Used by the PackInstance deletion handler to clean up
-                    deployed workload when the ClusterPack is deleted. wrapper-schema.md §3.
-                  properties:
-                    apiVersion:
-                      description: APIVersion is the Kubernetes apiVersion (e.g.,
-                        apps/v1, v1).
-                      type: string
-                    kind:
-                      description: Kind is the Kubernetes resource Kind (e.g., Deployment,
-                        Namespace).
-                      type: string
-                    name:
-                      description: Name is the resource name.
-                      type: string
-                    namespace:
-                      description: Namespace is the resource namespace. Empty for
-                        cluster-scoped resources.
-                      type: string
-                  required:
-                  - apiVersion
-                  - kind
-                  - name
-                  type: object
-                type: array
-              driftSummary:
-                description: DriftSummary is a human-readable summary of the current
-                  drift state.
-                type: string
               observedGeneration:
                 description: ObservedGeneration is the generation most recently reconciled.
                 format: int64
                 type: integer
-              upgradeDirection:
-                description: |-
-                  UpgradeDirection records the version transition direction for the last deployment.
-                  Initial: first deployment. Upgrade: newer version. Rollback: older version. Redeploy: same version.
-                enum:
-                - Initial
-                - Upgrade
-                - Rollback
-                - Redeploy
-                type: string
             type: object
         type: object
     served: true
